@@ -26,7 +26,7 @@ export const AuthProvider = ({ children }) => {
             return true;
         } catch (error) {
             console.error('Login failed', error);
-            return false;
+            throw error; // Propagate error to component
         }
     };
 

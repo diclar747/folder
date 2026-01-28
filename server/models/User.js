@@ -24,6 +24,9 @@ const User = sequelize.define('User', {
         type: DataTypes.BOOLEAN,
         defaultValue: true
     }
+}, {
+    tableName: 'Users', // Force exact table name
+    timestamps: true
 });
 
 module.exports = User;

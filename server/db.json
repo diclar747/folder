@@ -1,0 +1,23 @@
+{
+  "links": [
+    {
+      "id": "3t5wqicg6",
+      "title": "hola",
+      "description": "https://www.youtube.com/",
+      "imageUrl": "https://www.youtube.com/",
+      "destinationUrl": "https://www.youtube.com/",
+      "createdAt": "2026-01-28T21:55:53.185Z",
+      "createdBy": "user@user.com"
+    },
+    {
+      "id": "9p5sv9f2m",
+      "title": "",
+      "description": "",
+      "imageUrl": "",
+      "destinationUrl": "",
+      "createdAt": "2026-01-28T22:03:29.211Z",
+      "createdBy": "user@user.com"
+    }
+  ],
+  "sessions": []
+}

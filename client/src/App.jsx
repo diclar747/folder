@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import CreateLink from './pages/CreateLink';
 import TrackLink from './pages/TrackLink';
 import AdminDashboard from './pages/AdminDashboard';
+import UserDashboard from './pages/UserDashboard';
 
 const PrivateRoute = ({ children, role }) => {
   const { user, loading } = useAuth();
@@ -28,6 +29,12 @@ function App() {
             <Route path="/create" element={
               <PrivateRoute>
                 <CreateLink />
+              </PrivateRoute>
+            } />
+
+            <Route path="/dashboard" element={
+              <PrivateRoute>
+                <UserDashboard />
               </PrivateRoute>
             } />
 

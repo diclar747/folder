@@ -13,9 +13,9 @@ const Login = () => {
         const success = await login(email, password);
         if (success) {
             if (email === 'admin@admin') navigate('/admin');
-            else navigate('/create');
+            else navigate('/dashboard');
         } else {
-            alert('Login failed');
+            alert('Inicio de sesión fallido');
         }
     };
 
@@ -32,7 +32,7 @@ const Login = () => {
                     <h2 className="text-slate-900 dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">Ubicar</h2>
                 </div>
                 <button className="flex min-w-[84px] cursor-pointer items-center justify-center rounded-lg h-10 px-4 bg-primary text-white text-sm font-bold leading-normal tracking-[0.015em] hover:bg-primary/90 transition-colors">
-                    <span className="truncate">Request Access</span>
+                    <span className="truncate">Solicitar Acceso</span>
                 </button>
             </header>
 
@@ -45,20 +45,20 @@ const Login = () => {
 
                     {/* Branding/Headline */}
                     <div className="text-center mb-8">
-                        <h1 className="text-slate-900 dark:text-white tracking-tight text-[32px] font-bold leading-tight pb-2">Sign in to Ubicar</h1>
-                        <p className="text-slate-500 dark:text-[#92adc9] text-sm font-normal leading-normal">Geolocation Tracking Dashboard</p>
+                        <h1 className="text-slate-900 dark:text-white tracking-tight text-[32px] font-bold leading-tight pb-2">Iniciar Sesión en Ubicar</h1>
+                        <p className="text-slate-500 dark:text-[#92adc9] text-sm font-normal leading-normal">Panel de Geolocalización</p>
                     </div>
 
                     {/* Role Selector (Segmented Buttons) - Visual Only for now as functionality is auto-determined */}
                     <div className="mb-6">
-                        <p className="text-slate-900 dark:text-white text-sm font-medium leading-normal mb-2 text-center">Select Environment</p>
+                        <p className="text-slate-900 dark:text-white text-sm font-medium leading-normal mb-2 text-center">Seleccionar Entorno</p>
                         <div className="flex h-11 items-center justify-center rounded-lg bg-slate-100 dark:bg-[#233648] p-1">
                             <label className="flex cursor-pointer h-full grow items-center justify-center overflow-hidden rounded-lg px-2 has-[:checked]:bg-white dark:has-[:checked]:bg-[#111a22] has-[:checked]:shadow-sm has-[:checked]:text-primary text-slate-500 dark:text-[#92adc9] text-sm font-medium leading-normal transition-all">
-                                <span className="truncate">Admin Portal</span>
+                                <span className="truncate">Portal Admin</span>
                                 <input className="hidden" name="role-toggle" type="radio" value="Admin" defaultChecked={email === 'admin@admin'} />
                             </label>
                             <label className="flex cursor-pointer h-full grow items-center justify-center overflow-hidden rounded-lg px-2 has-[:checked]:bg-white dark:has-[:checked]:bg-[#111a22] has-[:checked]:shadow-sm has-[:checked]:text-primary text-slate-500 dark:text-[#92adc9] text-sm font-medium leading-normal transition-all">
-                                <span className="truncate">User Dashboard</span>
+                                <span className="truncate">Panel Usuario</span>
                                 <input className="hidden" name="role-toggle" type="radio" value="User" defaultChecked={email !== 'admin@admin'} />
                             </label>
                         </div>
@@ -68,7 +68,7 @@ const Login = () => {
                     <form className="space-y-4" onSubmit={handleSubmit}>
                         {/* Email Field */}
                         <div className="flex flex-col gap-2">
-                            <label className="text-slate-900 dark:text-white text-sm font-medium leading-normal">Email Address</label>
+                            <label className="text-slate-900 dark:text-white text-sm font-medium leading-normal">Correo Electrónico</label>
                             <div className="relative">
                                 <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-[#92adc9] text-[20px]">mail</span>
                                 <input
@@ -84,8 +84,8 @@ const Login = () => {
                         {/* Password Field */}
                         <div className="flex flex-col gap-2">
                             <div className="flex justify-between items-center">
-                                <label className="text-slate-900 dark:text-white text-sm font-medium leading-normal">Password</label>
-                                <a href="#" className="text-primary text-xs font-semibold hover:underline">Forgot password?</a>
+                                <label className="text-slate-900 dark:text-white text-sm font-medium leading-normal">Contraseña</label>
+                                <a href="#" className="text-primary text-xs font-semibold hover:underline">¿Olvidaste tu contraseña?</a>
                             </div>
                             <div className="relative">
                                 <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-[#92adc9] text-[20px]">lock</span>
@@ -105,19 +105,19 @@ const Login = () => {
                         {/* Remember Me */}
                         <div className="flex items-center gap-2 py-2">
                             <input id="remember" type="checkbox" className="size-4 rounded border-slate-300 dark:border-[#324d67] text-primary focus:ring-primary bg-white dark:bg-[#111a22]" />
-                            <label htmlFor="remember" className="text-slate-600 dark:text-[#92adc9] text-xs">Keep me signed in for 30 days</label>
+                            <label htmlFor="remember" className="text-slate-600 dark:text-[#92adc9] text-xs">Mantener sesión por 30 días</label>
                         </div>
 
                         {/* Sign In Button */}
                         <button type="submit" className="w-full flex h-12 items-center justify-center rounded-lg bg-primary text-white text-base font-bold tracking-wide hover:bg-primary/90 shadow-lg shadow-primary/20 active:scale-[0.98] transition-all">
-                            Sign In to Dashboard
+                            Ingresar
                         </button>
                     </form>
 
                     {/* Footer Note */}
                     <div className="mt-8 pt-6 border-t border-[#e5e7eb] dark:border-[#233648] text-center">
                         <p className="text-slate-400 dark:text-[#92adc9]/60 text-[10px] uppercase tracking-widest font-bold">
-                            Authorized Use Only • All actions are logged
+                            Solo Uso Autorizado • Todas las acciones son registradas
                         </p>
                         <div className="mt-4 flex justify-center gap-4">
                             <span className="material-symbols-outlined text-slate-300 dark:text-[#233648] text-[24px]">verified_user</span>

@@ -146,30 +146,30 @@ const AdminDashboard = () => {
                                 <span className="material-symbols-outlined">radar</span>
                             </div>
                             <div className="flex flex-col">
-                                <h1 className="text-slate-900 dark:text-white text-base font-bold leading-none">GeoTracker</h1>
-                                <p className="text-slate-500 dark:text-[#92adc9] text-xs font-normal">Security Analytics</p>
+                                <h1 className="text-slate-900 dark:text-white text-base font-bold leading-none">GeoRastreador</h1>
+                                <p className="text-slate-500 dark:text-[#92adc9] text-xs font-normal">Analítica de Seguridad</p>
                             </div>
                         </div>
                         {/* Nav Links */}
                         <nav className="flex flex-col gap-1">
                             <a href="#" className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 text-primary">
                                 <span className="material-symbols-outlined text-[22px]">dashboard</span>
-                                <span className="text-sm font-semibold">Dashboard</span>
+                                <span className="text-sm font-semibold">Panel</span>
                             </a>
                             <a href="#" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                                 <span className="material-symbols-outlined text-[22px]">campaign</span>
-                                <span className="text-sm font-medium">Active Campaigns</span>
+                                <span className="text-sm font-medium">Campañas Activas</span>
                             </a>
                             <a href="#" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                                 <span className="material-symbols-outlined text-[22px]">link</span>
-                                <span className="text-sm font-medium">Link Management</span>
+                                <span className="text-sm font-medium">Gestión de Enlaces</span>
                             </a>
                         </nav>
                     </div>
                     {/* Action Button */}
                     <button onClick={() => window.location.href = '/create'} className="flex w-full items-center justify-center gap-2 rounded-lg h-11 bg-primary text-white text-sm font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all">
                         <span className="material-symbols-outlined text-[20px]">add_link</span>
-                        <span>Generate Link</span>
+                        <span>Generar Enlace</span>
                     </button>
                 </div>
             </aside>
@@ -214,15 +214,15 @@ const AdminDashboard = () => {
                 <div className="relative z-10 p-6 pointer-events-none">
                     <div className="flex flex-wrap gap-4 pointer-events-auto">
                         <div className="flex min-w-[180px] flex-1 flex-col gap-1 rounded-xl p-5 bg-white/10 backdrop-blur-lg border border-white/10">
-                            <p className="text-slate-300 text-xs font-medium uppercase tracking-wider">Active Targets</p>
+                            <p className="text-slate-300 text-xs font-medium uppercase tracking-wider">Objetivos Activos</p>
                             <div className="flex items-end gap-2">
                                 <p className="text-white text-3xl font-bold leading-none">{sessions.length}</p>
-                                <p className="text-[#0bda5b] text-sm font-bold pb-1">Live</p>
+                                <p className="text-[#0bda5b] text-sm font-bold pb-1">En Vivo</p>
                             </div>
                         </div>
                         {/* Fake stats for visual completeness of design */}
                         <div className="flex min-w-[180px] flex-1 flex-col gap-1 rounded-xl p-5 bg-white/10 backdrop-blur-lg border border-white/10">
-                            <p className="text-slate-300 text-xs font-medium uppercase tracking-wider">Total Hits</p>
+                            <p className="text-slate-300 text-xs font-medium uppercase tracking-wider">Impactos Totales</p>
                             <div className="flex items-end gap-2">
                                 <p className="text-white text-3xl font-bold leading-none">1,284</p>
                                 <p className="text-[#0bda5b] text-sm font-bold pb-1">+12%</p>
@@ -236,12 +236,12 @@ const AdminDashboard = () => {
                     <div className="px-6 py-4 flex items-center justify-between border-b border-white/5">
                         <h2 className="text-white text-lg font-bold flex items-center gap-2">
                             <span className="material-symbols-outlined text-primary">analytics</span>
-                            Recent Activity Log
+                            Registro de Actividad
                         </h2>
                         <div className="flex items-center gap-3">
                             <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500/20 text-green-400 text-[10px] font-bold uppercase">
                                 <span className="size-1.5 rounded-full bg-green-500 animate-pulse"></span>
-                                Live Feed
+                                En Vivo
                             </span>
                         </div>
                     </div>
@@ -249,10 +249,10 @@ const AdminDashboard = () => {
                         <table className="w-full text-left border-collapse">
                             <thead className="sticky top-0 bg-[#1a2634] z-10">
                                 <tr>
-                                    <th className="px-6 py-3 text-slate-400 text-xs font-semibold uppercase tracking-wider">Timestamp</th>
-                                    <th className="px-6 py-3 text-slate-400 text-xs font-semibold uppercase tracking-wider text-center">User Agent</th>
-                                    <th className="px-6 py-3 text-slate-400 text-xs font-semibold uppercase tracking-wider">Coordinates</th>
-                                    <th className="px-6 py-3 text-slate-400 text-xs font-semibold uppercase tracking-wider">Link ID</th>
+                                    <th className="px-6 py-3 text-slate-400 text-xs font-semibold uppercase tracking-wider">Hora</th>
+                                    <th className="px-6 py-3 text-slate-400 text-xs font-semibold uppercase tracking-wider text-center">Navegador</th>
+                                    <th className="px-6 py-3 text-slate-400 text-xs font-semibold uppercase tracking-wider">Coordenadas</th>
+                                    <th className="px-6 py-3 text-slate-400 text-xs font-semibold uppercase tracking-wider">ID Enlace</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5">
@@ -268,7 +268,7 @@ const AdminDashboard = () => {
                                 ))}
                                 {sessions.length === 0 && (
                                     <tr>
-                                        <td colSpan="4" className="px-6 py-4 text-center text-slate-500">Waiting for connections...</td>
+                                        <td colSpan="4" className="px-6 py-4 text-center text-slate-500">Esperando conexiones...</td>
                                     </tr>
                                 )}
                             </tbody>

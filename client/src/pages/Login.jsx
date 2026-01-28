@@ -22,7 +22,9 @@ const Login = () => {
                 setError('Credenciales inválidas. Por favor intenta de nuevo.');
             }
         } catch (err) {
-            setError(err.message || 'Error de conexión. Intenta más tarde.');
+            console.error('Full login error:', err);
+            const errorMessage = err.response?.data?.message || err.message || 'Error de conexión.';
+            setError(errorMessage);
         }
     };
 

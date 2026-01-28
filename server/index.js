@@ -269,6 +269,26 @@ io.on('connection', (socket) => {
     });
 });
 
+// --- SYSTEM ROUTES ---
+
+app.get('/api/health', async (req, res) => {
+    try {
+        await sequelize.authenticate();
+        res.json({
+            status: 'online',
+            database: 'connected',
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('Health check failed:', error);
+        res.status(500).json({
+            status: 'error',
+            database: 'disconnected',
+            error: error.message
+        });
+    }
+});
+
 // --- SETUP/MIGRATION ROUTE ---
 app.get('/api/setup-db', async (req, res) => {
     try {

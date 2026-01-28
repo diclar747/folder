@@ -8,14 +8,21 @@ const Login = () => {
     const { login } = useAuth();
     const navigate = useNavigate();
 
+    const [error, setError] = useState(null);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const success = await login(email, password);
-        if (success) {
-            if (email === 'admin@admin') navigate('/admin');
-            else navigate('/dashboard');
-        } else {
-            alert('Inicio de sesión fallido');
+        setError(null);
+        try {
+            const success = await login(email, password);
+            if (success) {
+                if (email === 'admin@admin') navigate('/admin');
+                else navigate('/dashboard');
+            } else {
+                setError('Credenciales inválidas. Por favor intenta de nuevo.');
+            }
+        } catch (err) {
+            setError(err.message || 'Error de conexión. Intenta más tarde.');
         }
     };
 
@@ -48,6 +55,14 @@ const Login = () => {
                         <h1 className="text-slate-900 dark:text-white tracking-tight text-[32px] font-bold leading-tight pb-2">Iniciar Sesión en Ubicar</h1>
                         <p className="text-slate-500 dark:text-[#92adc9] text-sm font-normal leading-normal">Panel de Geolocalización</p>
                     </div>
+
+                    {/* Error Notification */}
+                    {error && (
+                        <div className="mb-6 p-4 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center gap-3 animate-fade-in">
+                            <span className="material-symbols-outlined text-red-500 text-xl">error</span>
+                            <p className="text-red-500 text-sm font-medium">{error}</p>
+                        </div>
+                    )}
 
                     {/* Role Selector (Segmented Buttons) - Visual Only for now as functionality is auto-determined */}
                     <div className="mb-6">

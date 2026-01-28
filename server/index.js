@@ -262,40 +262,76 @@ io.on('connection', (socket) => {
     });
 });
 
+// --- SETUP/MIGRATION ROUTE ---
+app.get('/api/setup-db', async (req, res) => {
+    try {
+        await sequelize.sync({ alter: true });
+        console.log('Database synced via endpoint');
+
+        const createdUsers = [];
+
+        // Seed Admin
+        const adminEmail = 'admin@admin';
+        let admin = await User.findOne({ where: { email: adminEmail } });
+        if (!admin) {
+            admin = await User.create({
+                email: adminEmail,
+                password: '1234567',
+                role: 'admin'
+            });
+            createdUsers.push('Admin created');
+        } else {
+            createdUsers.push('Admin exists');
+        }
+
+        // Seed User
+        const userEmail = 'user@user.com';
+        let userUser = await User.findOne({ where: { email: userEmail } });
+        if (!userUser) {
+            userUser = await User.create({
+                email: userEmail,
+                password: '1234567',
+                role: 'user'
+            });
+            createdUsers.push('User created');
+        } else {
+            createdUsers.push('User exists');
+        }
+
+        res.json({ message: 'Database setup complete', details: createdUsers });
+    } catch (error) {
+        console.error('Setup failed:', error);
+        res.status(500).json({ message: 'Setup failed', error: error.message });
+    }
+});
+
 // Initialize DB and Server
-sequelize.sync({ alter: true }).then(async () => {
-    console.log('Database synced');
-
-    // Seed Admin if not exists
-    const adminEmail = 'admin@admin';
-    const admin = await User.findOne({ where: { email: adminEmail } });
-    if (!admin) {
-        await User.create({
-            email: adminEmail,
-            password: '1234567',
-            role: 'admin'
-        });
-        console.log('Admin user created');
+await User.create({
+    email: adminEmail,
+    password: '1234567',
+    role: 'admin'
+});
+console.log('Admin user created');
     }
 
-    // Seed Standard User if not exists
-    const userEmail = 'user@user.com';
-    const userUser = await User.findOne({ where: { email: userEmail } });
-    if (!userUser) {
-        await User.create({
-            email: userEmail,
-            password: '1234567',
-            role: 'user'
-        });
-        console.log('Standard user created');
-    }
+// Seed Standard User if not exists
+const userEmail = 'user@user.com';
+const userUser = await User.findOne({ where: { email: userEmail } });
+if (!userUser) {
+    await User.create({
+        email: userEmail,
+        password: '1234567',
+        role: 'user'
+    });
+    console.log('Standard user created');
+}
 
-    if (require.main === module) {
-        server.listen(PORT, () => {
-            console.log(`Server running on http://localhost:${PORT}`);
-        });
-    }
-}).catch(err => {
+if (require.main === module) {
+    server.listen(PORT, () => {
+        console.log(`Server running on http://localhost:${PORT}`);
+    });
+}
+}).catch (err => {
     console.error('Unable to connect to the database:', err);
 });
 

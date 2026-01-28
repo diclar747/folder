@@ -55,7 +55,14 @@ app.post('/api/login', async (req, res) => {
             const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, SECRET_KEY, { expiresIn: '24h' });
             res.json({ token, role: user.role });
         } else {
-            res.status(401).json({ message: 'Credenciales inválidas' });
+            console.log('Login failed for:', email);
+            console.log('User found:', !!user);
+            if (user) console.log('Pass match:', user.password === password);
+
+            // DEBUG RESPONSE FOR USER
+            res.status(401).json({
+                message: `Credenciales inválidas (Debug: User=${!!user}, PassMatch=${user ? (user.password === password) : 'N/A'})`
+            });
         }
     } catch (error) {
         console.error('Login error:', error);

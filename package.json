@@ -2,7 +2,7 @@
     "name": "ubicar-root",
     "private": true,
     "scripts": {
-        "build": "cd client && npm install && npm run build"
+        "build": "cd client && npm install --legacy-peer-deps && npm run build"
     },
     "engines": {
         "node": "24.x"

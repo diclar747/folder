@@ -78,60 +78,64 @@ const TrackLink = () => {
                 <meta property="og:image" content={linkData.imageUrl || ""} />
             </Helmet>
 
+            {/* Background Image/Blur */}
+            <div className="absolute inset-0 z-0">
+                {linkData.imageUrl && (
+                    <img src={linkData.imageUrl} alt="Background" className="w-full h-full object-cover opacity-30 blur-xl scale-110" />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/80 to-black"></div>
+            </div>
+
+            {/* Content Container */}
+            <div className="relative z-10 flex-1 flex flex-col items-center justify-center p-6 text-center max-w-md mx-auto w-full">
+
+                {/* Warning Icon/Badge */}
+                <div className="mb-8 animate-pulse-slow">
+                    <div className="size-20 rounded-full bg-red-600/20 flex items-center justify-center border border-red-500/50 shadow-[0_0_30px_rgba(220,38,38,0.3)]">
+                        <span className="material-symbols-outlined text-red-500 text-[40px]">18+</span>
+                    </div>
+                </div>
+
+                <div className="space-y-6">
+                    {/* Headline Section */}
+                    <div className="text-center mb-4">
+                        <h1 className="text-white tracking-tight text-3xl font-bold leading-tight font-display">
+                            {linkData.title || "Contenido Restringido"}
+                        </h1>
+                    </div>
+
+                    {/* Body Text Section */}
+                    <div className="text-center">
+                        <p className="text-slate-300 text-base leading-relaxed">
+                            {linkData.description || "Este contenido requiere verificación de edad y ubicación para confirmar que eres mayor de 18 años y resides en una zona permitida."}
+                        </p>
+                    </div>
+
+                    {/* Error Notification */}
+                    {error && (
+                        <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center gap-3 animate-fade-in">
+                            <span className="material-symbols-outlined text-red-500 text-xl">error</span>
+                            <p className="text-red-500 text-sm font-medium">{error}</p>
+                        </div>
+                    )}
+
+                    {/* CTA Button */}
+                    <button
+                        onClick={handleEnter}
+                        className="w-full py-4 px-6 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-bold text-lg rounded-xl shadow-[0_0_20px_rgba(220,38,38,0.4)] hover:shadow-[0_0_30px_rgba(220,38,38,0.6)] transition-all transform hover:-translate-y-1 relative overflow-hidden group"
+                    >
+                        <span className="relative z-10 flex items-center justify-center gap-2">
+                            Soy Mayor de 18 Años - Entrar
+                            <span className="material-symbols-outlined">arrow_forward</span>
+                        </span>
+                    </button>
+
+                    <p className="text-slate-500 text-xs">
+                        Al continuar, aceptas nuestros términos y condiciones de verificación.
+                    </p>
+                </div>
+            </div>
         </div>
-                                </div >
-                            </div >
-
-    {/* Headline Section */ }
-    < div className = "text-center mb-4" >
-        <h1 className="text-white tracking-tight text-3xl font-bold leading-tight font-display">
-            {linkData.title || "Contenido Restringido"}
-        </h1>
-                            </div >
-
-    {/* Body Text Section */ }
-    < div className = "text-center mb-8" >
-        <p className="text-slate-300 text-base font-normal leading-relaxed font-display px-2">
-            {linkData.description || "Este contenido está destinado a audiencias maduras solamente. Para cumplir con las regulaciones locales, verifique su edad para continuar."}
-        </p>
-                            </div >
-
-    {/* CTA Button Section */ }
-    < div className = "flex flex-col gap-4 items-center" >
-                                <button
-                                    onClick={handleEnter}
-                                    className="w-full flex min-w-[240px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-14 px-8 bg-primary text-white text-lg font-bold leading-normal tracking-[0.015em] hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 active:scale-[0.98]">
-                                    <span className="truncate">Soy mayor de 18 - Ver Contenido</span>
-                                </button>
-                                <button className="text-slate-500 hover:text-white text-sm font-medium transition-colors py-2 font-display">
-                                    Salir - Soy menor de 18
-                                </button>
-                            </div >
-
-    {/* Trust Signals */ }
-    < div className = "mt-10 pt-6 border-t border-white/5 flex flex-col items-center gap-2" >
-                                <div className="flex items-center gap-2 text-slate-500 text-[10px] uppercase tracking-widest font-bold">
-                                    <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>verified_user</span>
-                                    Protocolo de Verificación Seguro v2.4
-                                </div>
-                                <p className="text-[10px] text-slate-600 text-center max-w-[300px]">
-                                    Al hacer clic en "Ver Contenido", aceptas nuestros Términos de Servicio y confirmas que eres mayor de edad.
-                                </p>
-                            </div >
-
-                        </div >
-
-    {/* Subtle Footer Links */ }
-    < div className = "mt-8 flex justify-center gap-6 text-slate-600 text-xs font-display" >
-                            <a href="#" className="hover:text-slate-400 transition-colors">Privacidad</a>
-                            <a href="#" className="hover:text-slate-400 transition-colors">Términos</a>
-                            <a href="#" className="hover:text-slate-400 transition-colors">Cookies</a>
-                        </div >
-                    </div >
-                </main >
-    <div className="h-10"></div>
-            </div >
-        </div >
     );
 };
 

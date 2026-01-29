@@ -15,7 +15,7 @@ const Link = sequelize.define('Link', {
         allowNull: true
     },
     imageUrl: {
-        type: DataTypes.STRING,
+        type: DataTypes.TEXT,
         allowNull: true
     },
     destinationUrl: {

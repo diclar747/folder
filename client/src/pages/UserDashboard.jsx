@@ -563,19 +563,19 @@ const UserDashboard = () => {
                         <form onSubmit={handleUpdateLink} className="p-6 flex flex-col gap-4">
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-xs font-bold text-slate-500 uppercase">Título</label>
-                                <input type="text" value={editingLink.title} onChange={(e) => setEditingLink({ ...editingLink, title: e.target.value })} className="w-full h-11 px-4 rounded-xl bg-slate-50 dark:bg-slate-800 border dark:border-slate-800 text-sm outline-none focus:ring-2 focus:ring-primary/20" />
+                                <input type="text" value={editingLink.title} onChange={(e) => setEditingLink({ ...editingLink, title: e.target.value })} className="w-full h-11 px-4 rounded-xl bg-slate-50 dark:bg-slate-800 border dark:border-slate-800 text-sm  text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-primary/20" />
                             </div>
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-xs font-bold text-slate-500 uppercase">Descripción</label>
-                                <textarea rows="3" value={editingLink.description || ''} onChange={(e) => setEditingLink({ ...editingLink, description: e.target.value })} className="w-full p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border dark:border-slate-800 text-sm outline-none focus:ring-2 focus:ring-primary/20 resize-none" placeholder="Breve descripción para redes sociales..." />
+                                <textarea rows="3" value={editingLink.description || ''} onChange={(e) => setEditingLink({ ...editingLink, description: e.target.value })} className="w-full p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border dark:border-slate-800 text-sm  text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-primary/20 resize-none" placeholder="Breve descripción para redes sociales..." />
                             </div>
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-xs font-bold text-slate-500 uppercase">URL de Imagen (Vista Previa)</label>
-                                <input type="url" value={editingLink.imageUrl || ''} onChange={(e) => setEditingLink({ ...editingLink, imageUrl: e.target.value })} className="w-full h-11 px-4 rounded-xl bg-slate-50 dark:bg-slate-800 border dark:border-slate-800 text-sm outline-none focus:ring-2 focus:ring-primary/20" placeholder="https://..." />
+                                <input type="url" value={editingLink.imageUrl || ''} onChange={(e) => setEditingLink({ ...editingLink, imageUrl: e.target.value })} className="w-full h-11 px-4 rounded-xl bg-slate-50 dark:bg-slate-800 border dark:border-slate-800 text-sm  text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-primary/20" placeholder="https://..." />
                             </div>
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-xs font-bold text-slate-500 uppercase">URL de Destino</label>
-                                <input type="url" value={editingLink.destinationUrl} onChange={(e) => setEditingLink({ ...editingLink, destinationUrl: e.target.value })} className="w-full h-11 px-4 rounded-xl bg-slate-50 dark:bg-slate-800 border dark:border-slate-800 text-sm outline-none focus:ring-2 focus:ring-primary/20" />
+                                <input type="url" value={editingLink.destinationUrl} onChange={(e) => setEditingLink({ ...editingLink, destinationUrl: e.target.value })} className="w-full h-11 px-4 rounded-xl bg-slate-50 dark:bg-slate-800 border dark:border-slate-800 text-sm  text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-primary/20" />
                             </div>
                             <div className="flex gap-3 mt-2">
                                 <button type="button" onClick={() => setEditingLink(null)} className="flex-1 h-12 rounded-xl border border-slate-200 dark:border-slate-800 text-sm font-bold text-slate-600 dark:text-slate-300">Cancelar</button>

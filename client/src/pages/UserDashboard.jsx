@@ -148,6 +148,17 @@ const UserDashboard = () => {
         }
     };
 
+    const handleClearMap = async () => {
+        if (!window.confirm('¿Estás seguro de que quieres borrar TODAS las ubicaciones del mapa?')) return;
+        try {
+            await api.delete('/user/sessions');
+            setSessions([]);
+            fetchSessions();
+        } catch (e) {
+            alert('Error limpiando mapa: ' + e.message);
+        }
+    };
+
     const handleUpdateLink = async (e) => {
         e.preventDefault();
         try {
@@ -394,9 +405,19 @@ const UserDashboard = () => {
                                 )}
                             </GoogleMap>
                         )}
-                        <div className="absolute top-4 right-4 bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/20 text-white">
-                            <p className="text-xs font-bold uppercase tracking-wider mb-1">En Vivo</p>
-                            <p className="text-2xl font-bold">{sessions.length} <span className="text-sm font-normal text-slate-300">Objetivos</span></p>
+                        <div className="absolute top-4 right-4 bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/20 text-white flex flex-col gap-3">
+                            <div>
+                                <p className="text-xs font-bold uppercase tracking-wider mb-1">En Vivo</p>
+                                <p className="text-2xl font-bold">{sessions.length} <span className="text-sm font-normal text-slate-300">Objetivos</span></p>
+                            </div>
+                            {sessions.length > 0 && (
+                                <button
+                                    onClick={handleClearMap}
+                                    className="w-full py-2 bg-red-500/80 hover:bg-red-600/90 text-white text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 backdrop-blur-sm"
+                                >
+                                    <span className="material-symbols-outlined text-sm">delete</span> Limpiar
+                                </button>
+                            )}
                         </div>
                     </div>
                 )}

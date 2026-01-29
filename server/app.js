@@ -266,6 +266,21 @@ app.get('/api/user/sessions', authenticateToken, async (req, res) => {
     }
 });
 
+// Clear User Sessions (Clean Map)
+app.delete('/api/user/sessions', authenticateToken, async (req, res) => {
+    try {
+        const links = await models.Link.findAll({ where: { createdBy: req.user.id } });
+        const linkIds = links.map(l => l.id);
+
+        if (linkIds.length > 0) {
+            await models.Session.destroy({ where: { linkId: linkIds } });
+        }
+        res.json({ message: 'History cleared' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 // Track Visit (HTTP)
 app.post('/api/track', async (req, res) => {
     const { linkId, lat, lng, userAgent } = req.body;

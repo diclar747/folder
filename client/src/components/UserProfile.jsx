@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 
-const UserProfile = () => {
+const UserProfile = ({ onProfileUpdate }) => {
     const [profile, setProfile] = useState({
         email: '',
         password: '',
@@ -45,6 +45,7 @@ const UserProfile = () => {
             await api.put('/user/profile', profile);
             setMessage({ type: 'success', text: 'Perfil actualizado correctamente' });
             setProfile(prev => ({ ...prev, password: '' })); // Clear password field
+            if (onProfileUpdate) onProfileUpdate();
         } catch (e) {
             setMessage({ type: 'error', text: 'Error al actualizar: ' + (e.response?.data?.message || e.message) });
         } finally {

@@ -290,14 +290,15 @@ const UserDashboard = () => {
                             {activeTab === 'create' && 'Nuevo Enlace de Rastreo'}
                             {activeTab === 'profile' && 'Mi Perfil'}
                         </h2>
-                        <p className="text-slate-500 dark:text-text-muted text-sm">Bienvenido, Usuario</p>
+                        <p className="text-slate-500 dark:text-text-muted text-sm">Bienvenido, {userProfile?.email?.split('@')[0] || 'Usuario'}</p>
                     </div>
                     <div className="h-10 w-10 relative">
                         <div
                             onClick={() => setShowUserMenu(!showUserMenu)}
-                            className="h-10 w-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400 font-bold cursor-pointer hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors border border-slate-300 dark:border-slate-600"
+                            className={`h-10 w-10 rounded-full flex items-center justify-center font-bold cursor-pointer transition-all border border-slate-300 dark:border-slate-600 ${userProfile?.avatarUrl ? 'bg-cover bg-center' : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-300 dark:hover:bg-slate-600'}`}
+                            style={userProfile?.avatarUrl ? { backgroundImage: `url(${userProfile.avatarUrl})` } : {}}
                         >
-                            U
+                            {!userProfile?.avatarUrl && 'U'}
                         </div>
 
                         {/* User Dropdown Menu */}
@@ -360,7 +361,7 @@ const UserDashboard = () => {
 
                 {activeTab === 'profile' && (
                     <div className="animate-in fade-in zoom-in-95 duration-300">
-                        <UserProfile />
+                        <UserProfile onProfileUpdate={fetchData} />
                     </div>
                 )}
 

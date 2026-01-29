@@ -19,6 +19,7 @@ const center = {
 
 const mapOptions = {
     disableDefaultUI: true,
+    mapTypeId: "satellite", // User requested satellite mode
     styles: [
         { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
         { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
@@ -240,6 +241,10 @@ const UserDashboard = () => {
 
                 {activeTab === 'create' && (
                     <div className="animate-in fade-in zoom-in-95 duration-300">
+                        <div className="mb-6 bg-blue-500/10 border border-blue-500/20 p-4 rounded-xl flex gap-3 items-center text-blue-400">
+                            <span className="material-symbols-outlined text-2xl">info</span>
+                            <p className="text-sm">Crea un enlace para compartir. Cuando los usuarios acepten compartir su ubicación, aparecerán en tu mapa en tiempo real.</p>
+                        </div>
                         <CreateLinkForm onLinkCreated={() => { fetchData(); setActiveTab('links'); }} />
                     </div>
                 )}

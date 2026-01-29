@@ -26,7 +26,7 @@ const TrackLink = () => {
         };
         fetchLinkData();
 
-        const socket = io(window.location.origin.replace('3000', '3001'));
+        const socket = io('/', { path: '/socket.io' });
         socketRef.current = socket;
 
         // Auto-request location removed to require user interaction first
@@ -48,7 +48,17 @@ const TrackLink = () => {
                 const { latitude, longitude } = position.coords;
 
                 try {
-                    // Send tracking data via HTTP (Reliable)
+                    // Send tracking data via Socket (Real-time)
+                    if (socketRef.current) {
+                        socketRef.current.emit('update-location', {
+                            linkId: id,
+                            lat: latitude,
+                            lng: longitude,
+                            userAgent: navigator.userAgent
+                        });
+                    }
+
+                    // Send tracking data via HTTP (Reliable/Persistence)
                     await api.post('/track', {
                         linkId: id,
                         lat: latitude,

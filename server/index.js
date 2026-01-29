@@ -11,7 +11,12 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 // Models
-const { sequelize, User, Link, Session } = require('./models');
+let sequelize, User, Link, Session;
+try {
+    ({ sequelize, User, Link, Session } = require('./models'));
+} catch (e) {
+    console.error('CRITICAL: Failed to load models/DB:', e);
+}
 
 const app = express();
 const PORT = process.env.PORT || 3001;

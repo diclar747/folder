@@ -264,10 +264,7 @@ const UserDashboard = () => {
 
                 {activeTab === 'create' && (
                     <div className="animate-in fade-in zoom-in-95 duration-300">
-                        <div className="mb-6 bg-blue-500/10 border border-blue-500/20 p-4 rounded-xl flex gap-3 items-center text-blue-400">
-                            <span className="material-symbols-outlined text-2xl">info</span>
-                            <p className="text-sm">Crea un enlace para compartir. Cuando los usuarios acepten compartir su ubicación, aparecerán en tu mapa en tiempo real.</p>
-                        </div>
+
                         <CreateLinkForm onLinkCreated={() => { fetchData(); setActiveTab('links'); }} />
                     </div>
                 )}
@@ -373,6 +370,12 @@ const UserDashboard = () => {
                                     >
                                         <div className="p-2 min-w-[200px]">
                                             <p className="font-bold text-slate-800 text-sm mb-1">Objetivo Detectado</p>
+
+                                            <div className="flex gap-2 mb-2 text-[10px] font-mono bg-slate-100 rounded px-1.5 py-1 text-slate-600">
+                                                <span>Lat: {selectedSession.lat.toFixed(6)}</span>
+                                                <span>Lng: {selectedSession.lng.toFixed(6)}</span>
+                                            </div>
+
                                             <p className="text-xs text-slate-600 mb-2">IP: {selectedSession.ip}</p>
                                             <p className="text-xs text-slate-500 italic mb-3">{new Date(selectedSession.timestamp).toLocaleString()}</p>
 

@@ -35,9 +35,6 @@ const Session = sequelize.define('Session', {
         type: DataTypes.STRING,
         allowNull: true
     }
-}, {
-    tableName: 'Sessions',
-    timestamps: true
 });
 
 module.exports = Session;

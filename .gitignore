@@ -4,3 +4,10 @@ build
 .env
 .DS_Store
 *.log
+.vercel
+
+# Debug scripts
+check_users.js
+debug_db.js
+fix_role_enum.js
+server/debug_db.js

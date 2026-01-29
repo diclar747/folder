@@ -19,17 +19,6 @@ try {
     Link = models.Link;
     Session = models.Session;
 
-    // In Vercel, we need to ensure the DB is connected and synced
-    // This runs once per cold start
-    sequelize.authenticate()
-        .then(() => console.log('Database connected successfully in production'))
-        .catch(err => console.error('Database connection failed in production:', err));
-
-    // Optional: Only sync if needed, but alter: true is relatively safe for development/demo
-    sequelize.sync({ alter: true })
-        .then(() => console.log('Database schema synced'))
-        .catch(err => console.error('Database sync failed:', err));
-
 } catch (e) {
     console.error('CRITICAL: Failed to load models/DB:', e);
 }
@@ -301,9 +290,13 @@ app.get('/api/setup-db', async (req, res) => {
 
 // Server Starter for local development
 if (require.main === module) {
-    const PORT_LOCAL = process.env.PORT || 3001;
-    server.listen(PORT_LOCAL, () => {
-        console.log(`Server running on http://localhost:${PORT_LOCAL}`);
+    sequelize.sync({ alter: true }).then(() => {
+        const PORT_LOCAL = process.env.PORT || 3001;
+        server.listen(PORT_LOCAL, () => {
+            console.log(`Server running on http://localhost:${PORT_LOCAL}`);
+        });
+    }).catch(err => {
+        console.error('Unable to connect to the database:', err);
     });
 }
 

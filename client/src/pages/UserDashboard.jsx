@@ -53,6 +53,17 @@ const UserDashboard = () => {
     const [cleanId, setCleanId] = useState(null);
     const [clearAllMap, setClearAllMap] = useState(false);
     const socketRef = useRef();
+    const lastSessionIdRef = useRef(null);
+
+    const playNotificationSound = () => {
+        try {
+            const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'); // Clearer "Ping" sound
+            audio.volume = 0.8;
+            audio.play().catch(e => console.log('Audio requires interaction:', e));
+        } catch (e) {
+            console.error('Sound error', e);
+        }
+    };
 
     useEffect(() => {
         fetchData();
@@ -88,15 +99,7 @@ const UserDashboard = () => {
         socket.on('location-updated', (session) => {
             fetchSessions();
             setToast(session);
-
-            // Play notification sound
-            try {
-                // Using a short pleasant notification beep
-                const audio = new Audio('https://cdn.freesound.org/previews/573/573381_6539150-lq.mp3');
-                audio.volume = 0.5;
-                audio.play().catch(e => console.log('Audio requires interaction:', e));
-            } catch (e) { console.error('Sound error', e); }
-
+            playNotificationSound();
             setTimeout(() => setToast(null), 10000);
         });
 
@@ -116,6 +119,11 @@ const UserDashboard = () => {
             setStats(statsRes.data);
             setLinks(linksRes.data);
             setSessions(sessionsRes.data);
+
+            // Init ref to avoid initial beep
+            if (sessionsRes.data.length > 0) {
+                lastSessionIdRef.current = sessionsRes.data[0].id;
+            }
         } catch (error) {
             console.error("Error fetching dashboard data", error);
         }
@@ -124,7 +132,20 @@ const UserDashboard = () => {
     const fetchSessions = async () => {
         try {
             const res = await api.get('/user/sessions');
-            setSessions(res.data);
+            const newSessions = res.data;
+
+            // Check for new detected session (Polling fallback)
+            if (newSessions.length > 0) {
+                const latest = newSessions[0];
+                // If we have previous data AND the latest ID is different from stored
+                if (lastSessionIdRef.current && latest.id !== lastSessionIdRef.current) {
+                    setToast(latest);
+                    playNotificationSound();
+                }
+                lastSessionIdRef.current = latest.id;
+            }
+
+            setSessions(newSessions);
             const statsRes = await api.get('/user/stats');
             setStats(statsRes.data);
         } catch (e) { console.error(e); }

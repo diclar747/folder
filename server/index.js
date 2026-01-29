@@ -10,18 +10,23 @@ const dotenv = require('dotenv');
 // Load env vars
 dotenv.config();
 
-// Models
+// Models - Lazy loaded for better stability in serverless
 let sequelize, User, Link, Session, initError;
-try {
-    const models = require('./models');
-    sequelize = models.sequelize;
-    User = models.User;
-    Link = models.Link;
-    Session = models.Session;
-} catch (e) {
-    console.error('CRITICAL: Failed to load models/DB:', e);
-    initError = e;
-}
+const loadModels = () => {
+    if (User) return { sequelize, User, Link, Session };
+    try {
+        const models = require('./models');
+        sequelize = models.sequelize;
+        User = models.User;
+        Link = models.Link;
+        Session = models.Session;
+        return { sequelize, User, Link, Session };
+    } catch (e) {
+        console.error('CRITICAL: Failed to load models/DB:', e);
+        initError = e;
+        return { sequelize: null, User: null, Link: null, Session: null };
+    }
+};
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -110,31 +115,37 @@ app.get('/api/ping', (req, res) => {
 app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
     console.log(`Login attempt for: ${email}`);
+
     try {
+        const models = loadModels();
+        const { User: UserModel, sequelize: db } = models;
+
         // Test DB connection on each login attempt for debugging
-        if (sequelize) {
+        if (db) {
             try {
-                await sequelize.authenticate();
+                await db.authenticate();
             } catch (authErr) {
                 console.error('Auth error inside login route:', authErr);
                 return res.status(500).json({
                     message: 'Error de conexión a la base de datos',
                     details: authErr.message,
-                    code: authErr.name
+                    code: authErr.name,
+                    env_check: process.env.DATABASE_URL ? 'URL Present' : 'URL Missing'
                 });
             }
         }
 
-        if (!User) {
+        if (!UserModel) {
             console.error('ERROR: User model is undefined. Init Error:', initError);
             return res.status(500).json({
                 message: 'Error de configuración: Modelo User no cargado',
                 details: initError ? initError.message : 'Unknown initialization error',
-                hint: 'Verifica la DATABASE_URL en Vercel'
+                hint: 'Verifica la DATABASE_URL en Vercel',
+                env_keys: Object.keys(process.env).filter(k => k.includes('POSTGRES') || k.includes('DATABASE'))
             });
         }
 
-        const user = await User.findOne({ where: { email } });
+        const user = await UserModel.findOne({ where: { email } });
         if (user && user.password === password) {
             if (!user.isActive) {
                 console.log(`Login blocked: User ${email} is inactive`);
@@ -151,7 +162,7 @@ app.post('/api/login', async (req, res) => {
     } catch (error) {
         console.error('CRITICAL LOGIN ERROR:', error);
         res.status(500).json({
-            message: 'Error en el servidor',
+            message: 'Error inesperado en el servidor',
             details: error.message,
             stack: error.stack,
             code: error.name
@@ -300,12 +311,23 @@ app.get('/api/health', async (req, res) => {
 // Setup DB
 app.get('/api/setup-db', async (req, res) => {
     try {
-        await sequelize.sync({ alter: true });
-        // Seed logic here if needed, kept simple for brevity
+        const models = loadModels();
+        if (!models.sequelize) throw new Error('Sequelize not initialized');
+        await models.sequelize.sync({ alter: true });
         res.json({ message: 'Database synced' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
+});
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+    console.error('SERVER ERROR:', err);
+    res.status(500).json({
+        error: 'Global Handler Triggered',
+        message: err.message,
+        stack: process.env.NODE_ENV === 'production' ? null : err.stack
+    });
 });
 
 // Server Starter for local development

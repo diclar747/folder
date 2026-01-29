@@ -2,8 +2,10 @@ import React, { useEffect, useState, useRef } from 'react';
 import { GoogleMap, useLoadScript, Marker } from '@react-google-maps/api';
 import { io } from 'socket.io-client';
 import api from '../services/api';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import Sidebar from '../components/Sidebar';
+import CreateLinkForm from '../components/CreateLinkForm';
 
 const mapContainerStyle = {
     width: '100%',
@@ -99,8 +101,11 @@ const mapOptions = {
     ]
 };
 
+const libraries = ['places', 'geometry'];
+
 const AdminDashboard = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { logout } = useAuth();
     const [stats, setStats] = useState({ totalLinks: 0, totalLocations: 0 });
     const [links, setLinks] = useState([]);
@@ -111,9 +116,18 @@ const AdminDashboard = () => {
     const [toast, setToast] = useState(null);
     const { isLoaded, loadError } = useLoadScript({
         googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyA4qMbpLlGXpc3EOTqelCXEdmCQBYnJh9g',
+        libraries,
     });
 
     const socketRef = useRef();
+
+    useEffect(() => {
+        if (location.state?.tab) {
+            setActiveTab(location.state.tab);
+            // Clear state to avoid persistent redirect effect
+            window.history.replaceState({}, document.title);
+        }
+    }, [location]);
 
     useEffect(() => {
         fetchAdminData();
@@ -139,6 +153,7 @@ const AdminDashboard = () => {
         } catch (e) { console.error("Error fetching admin data", e); }
     };
 
+    // ... existing handlers ...
     const handleLocate = (session) => {
         setSelectedSession(session);
         setActiveTab('dashboard');
@@ -189,81 +204,7 @@ const AdminDashboard = () => {
     return (
         <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 antialiased overflow-hidden min-h-screen flex w-full">
             {/* Sidebar Navigation */}
-            <aside className="w-64 flex flex-col border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-background-dark z-20">
-                <div className="p-6 flex flex-col h-full justify-between">
-                    <div className="flex flex-col gap-8">
-                        {/* Brand */}
-                        <div className="flex items-center gap-3">
-                            <div className="bg-primary rounded-lg p-2 text-white flex items-center justify-center">
-                                <span className="material-symbols-outlined">radar</span>
-                            </div>
-                            <div className="flex flex-col">
-                                <h1 className="text-slate-900 dark:text-white text-base font-bold leading-none">GeoRastreador</h1>
-                                <p className="text-slate-500 dark:text-[#92adc9] text-xs font-normal">Analítica de Seguridad</p>
-                            </div>
-                        </div>
-                        {/* Nav Links */}
-                        <nav className="flex flex-col gap-1">
-                            <button
-                                onClick={() => setActiveTab('dashboard')}
-                                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${activeTab === 'dashboard' ? 'bg-primary/10 text-primary font-bold' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-                            >
-                                <span className="material-symbols-outlined text-[22px]">dashboard</span>
-                                <span className="text-sm font-semibold">Panel</span>
-                            </button>
-                            <button
-                                onClick={() => navigate('/create')}
-                                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                            >
-                                <span className="material-symbols-outlined text-[22px]">add_link</span>
-                                <span className="text-sm font-medium">Crear Enlace</span>
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('links')}
-                                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${activeTab === 'links' ? 'bg-primary/10 text-primary font-bold' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-                            >
-                                <span className="material-symbols-outlined text-[22px]">link</span>
-                                <span className="text-sm font-medium">Mis Enlaces</span>
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('campaigns')}
-                                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${activeTab === 'campaigns' ? 'bg-primary/10 text-primary font-bold' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-                            >
-                                <span className="material-symbols-outlined text-[22px]">analytics</span>
-                                <span className="text-sm font-medium">Analíticas</span>
-                            </button>
-
-                            <hr className="my-2 border-white/5" />
-
-                            <button
-                                onClick={() => setActiveTab('settings')}
-                                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${activeTab === 'settings' ? 'bg-primary/10 text-primary font-bold' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-                            >
-                                <span className="material-symbols-outlined text-[22px]">settings</span>
-                                <span className="text-sm font-medium">Configuración</span>
-                            </button>
-
-                            <hr className="my-2 border-slate-100 dark:border-slate-800" />
-
-                            <button
-                                onClick={() => {
-                                    logout();
-                                    navigate('/login');
-                                }}
-                                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-all font-medium"
-                            >
-                                <span className="material-symbols-outlined text-[22px]">logout</span>
-                                <span className="text-sm">Cerrar Sesión</span>
-                            </button>
-                        </nav>
-                    </div>
-                    {/* Action Button */}
-                    <button onClick={() => window.location.href = '/create'} className="flex w-full items-center justify-center gap-2 rounded-lg h-11 bg-primary text-white text-sm font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all">
-                        <span className="material-symbols-outlined text-[20px]">add_link</span>
-                        <span>Generar Enlace</span>
-                    </button>
-                </div>
-            </aside>
+            <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
 
             {/* Main Content Area */}
             <main className="flex-1 flex flex-col relative overflow-hidden">
@@ -289,7 +230,15 @@ const AdminDashboard = () => {
                         </div>
                     </div>
                 )}
-                {/* Content: Dashboard (Map + Stats) */}
+
+                {activeTab === 'create' && (
+                    <div className="flex-1 overflow-auto p-8">
+                        <div className="animate-in fade-in zoom-in-95 duration-300">
+                            <CreateLinkForm onLinkCreated={() => { fetchAdminData(); setActiveTab('links'); }} />
+                        </div>
+                    </div>
+                )}
+
                 {activeTab === 'dashboard' && (
                     <>
                         {/* Map Background Layer - Now Real Map */}

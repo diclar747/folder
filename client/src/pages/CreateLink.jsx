@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import Sidebar from '../components/Sidebar';
 
 const CreateLink = () => {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [formData, setFormData] = useState({
         destinationUrl: '',
         title: '',
@@ -33,44 +36,10 @@ const CreateLink = () => {
         <div className="bg-background-light dark:bg-background-dark font-display text-white transition-colors duration-200 min-h-screen flex">
 
             {/* Sidebar Navigation */}
-            <aside className="w-72 bg-background-light dark:bg-background-dark border-r border-gray-200 dark:border-border-dark flex flex-col fixed h-full z-10">
-                <div className="p-6 flex flex-col gap-4">
-                    <div className="flex flex-col mb-4">
-                        <h1 className="text-gray-900 dark:text-white text-lg font-bold leading-normal flex items-center gap-2">
-                            <span className="material-symbols-outlined text-primary">location_on</span>
-                            GeoRastreador Admin
-                        </h1>
-                        <p className="text-gray-500 dark:text-text-muted text-xs font-normal">Suite de Pruebas de Seguridad</p>
-                    </div>
-                    <nav className="flex flex-col gap-2">
-                        <button onClick={() => navigate('/admin')} className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-text-muted hover:bg-gray-100 dark:hover:bg-surface-dark transition-all w-full text-left">
-                            <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>dashboard</span>
-                            <p className="text-sm font-medium">Panel</p>
-                        </button>
-                        <button className="flex items-center gap-3 px-3 py-2 rounded-lg bg-primary/10 text-primary border border-primary/20 w-full text-left">
-                            <span className="material-symbols-outlined">add_link</span>
-                            <p className="text-sm font-bold">Crear Enlace</p>
-                        </button>
-                        <button onClick={() => navigate('/admin')} className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-text-muted hover:bg-gray-100 dark:hover:bg-surface-dark transition-all w-full text-left">
-                            <span className="material-symbols-outlined">link</span>
-                            <p className="text-sm font-medium">Mis Enlaces</p>
-                        </button>
-                        <button onClick={() => navigate('/admin')} className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-text-muted hover:bg-gray-100 dark:hover:bg-surface-dark transition-all w-full text-left">
-                            <span className="material-symbols-outlined">analytics</span>
-                            <p className="text-sm font-medium">Analíticas</p>
-                        </button>
-                        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-border-dark">
-                            <button onClick={() => navigate('/admin')} className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-text-muted hover:bg-gray-100 dark:hover:bg-surface-dark transition-all w-full text-left">
-                                <span className="material-symbols-outlined">settings</span>
-                                <p className="text-sm font-medium">Configuración</p>
-                            </button>
-                        </div>
-                    </nav>
-                </div>
-            </aside>
+            <Sidebar />
 
             {/* Main Content Area */}
-            <main className="flex-1 ml-72 flex justify-center py-10 px-8">
+            <main className="flex-1 ml-64 flex justify-center py-10 px-8">
                 <div className="max-w-[800px] w-full flex flex-col gap-8">
 
                     {/* Page Heading */}

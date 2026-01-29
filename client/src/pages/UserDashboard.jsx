@@ -2,8 +2,10 @@ import React, { useEffect, useState, useRef } from 'react';
 import { GoogleMap, useLoadScript, Marker } from '@react-google-maps/api';
 import { io } from 'socket.io-client';
 import api from '../services/api';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import Sidebar from '../components/Sidebar';
+import CreateLinkForm from '../components/CreateLinkForm';
 
 const mapContainerStyle = {
     width: '100%',
@@ -27,12 +29,15 @@ const mapOptions = {
     ]
 };
 
+const libraries = ['places', 'geometry'];
+
 const UserDashboard = () => {
     const { logout } = useAuth();
     const navigate = useNavigate();
 
     const { isLoaded, loadError } = useLoadScript({
         googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyA4qMbpLlGXpc3EOTqelCXEdmCQBYnJh9g',
+        libraries,
     });
 
     const [stats, setStats] = useState({ totalLinks: 0, totalLocations: 0 });
@@ -172,7 +177,7 @@ const UserDashboard = () => {
                 </div>
                 <div className="mt-auto p-6 border-t border-slate-100 dark:border-slate-800">
                     <button
-                        onClick={() => navigate('/create')}
+                        onClick={() => setActiveTab('create')}
                         className="flex w-full items-center justify-center gap-2 rounded-lg h-10 bg-primary text-white text-sm font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all"
                     >
                         <span className="material-symbols-outlined text-lg">add</span>
@@ -188,6 +193,7 @@ const UserDashboard = () => {
                             {activeTab === 'overview' && 'Resumen del Panel'}
                             {activeTab === 'map' && 'Monitoreo en Tiempo Real'}
                             {activeTab === 'links' && 'Gestión de Enlaces'}
+                            {activeTab === 'create' && 'Nuevo Enlace de Rastreo'}
                         </h2>
                         <p className="text-slate-500 dark:text-text-muted text-sm">Bienvenido, Usuario</p>
                     </div>
@@ -214,6 +220,12 @@ const UserDashboard = () => {
                                 <span className="material-symbols-outlined text-sm">close</span>
                             </button>
                         </div>
+                    </div>
+                )}
+
+                {activeTab === 'create' && (
+                    <div className="animate-in fade-in zoom-in-95 duration-300">
+                        <CreateLinkForm onLinkCreated={() => { fetchData(); setActiveTab('links'); }} />
                     </div>
                 )}
 

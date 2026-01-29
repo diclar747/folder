@@ -10,7 +10,7 @@ const sequelize = new Sequelize(databaseUrl, {
             rejectUnauthorized: false
         }
     },
-    logging: false
+    logging: console.log
 });
 
 module.exports = sequelize;

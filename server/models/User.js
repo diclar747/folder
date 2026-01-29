@@ -25,7 +25,7 @@ const User = sequelize.define('User', {
         defaultValue: true
     }
 }, {
-    tableName: 'Users', // Force exact table name
+    freezeTableName: true, // Prevent pluralization (Users -> Users)
     timestamps: true
 });
 

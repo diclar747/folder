@@ -18,9 +18,10 @@ try {
     User = models.User;
     Link = models.Link;
     Session = models.Session;
-
 } catch (e) {
     console.error('CRITICAL: Failed to load models/DB:', e);
+    // Export error for debugging if needed
+    module.exports.initError = e;
 }
 
 const app = express();
@@ -109,10 +110,15 @@ app.get('/api/ping', (req, res) => {
 // Login
 app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
+    console.log(`Login attempt for: ${email}`);
     try {
         if (!User) {
-            console.error('ERROR: User model is undefined');
-            return res.status(500).json({ message: 'Error de configuración: Modelo User no cargado' });
+            const initError = require('./index').initError;
+            console.error('ERROR: User model is undefined. Init Error:', initError);
+            return res.status(500).json({
+                message: 'Error de configuración: Modelo User no cargado',
+                details: initError ? initError.message : 'Unknown initialization error'
+            });
         }
 
         const user = await User.findOne({ where: { email } });
@@ -134,7 +140,8 @@ app.post('/api/login', async (req, res) => {
         res.status(500).json({
             message: 'Error en el servidor',
             details: error.message,
-            code: error.name // Capture SequelizeDatabaseError, etc.
+            stack: error.stack,
+            code: error.name
         });
     }
 });

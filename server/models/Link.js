@@ -30,6 +30,9 @@ const Link = sequelize.define('Link', {
         type: DataTypes.STRING,
         defaultValue: 'Más información'
     }
+}, {
+    tableName: 'Links',
+    timestamps: true
 });
 
 module.exports = Link;

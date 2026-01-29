@@ -451,6 +451,7 @@ const UserDashboard = () => {
                                                     <span className="material-symbols-outlined text-[20px]">map</span>
                                                 </button>
                                                 <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/track/${link.id}`)} className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Copiar Enlace"><span className="material-symbols-outlined text-[20px]">content_copy</span></button>
+                                                <button onClick={() => handleClearLinkHistory(link.id)} className="p-2 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/10 rounded-lg transition-colors" title="Limpiar Historial"><span className="material-symbols-outlined text-[20px]">cleaning_services</span></button>
                                                 <button onClick={() => setEditingLink({ ...link })} className="p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"><span className="material-symbols-outlined text-[20px]">edit</span></button>
                                                 <button onClick={() => handleDeleteLink(link.id)} className="p-2 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-colors"><span className="material-symbols-outlined text-[20px]">delete</span></button>
                                             </div>

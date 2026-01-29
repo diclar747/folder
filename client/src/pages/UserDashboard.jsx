@@ -187,7 +187,7 @@ const UserDashboard = () => {
                         <div className="bg-white dark:bg-surface-dark p-6 rounded-xl border border-slate-100 dark:border-border-dark shadow-sm md:col-span-2 lg:col-span-1">
                             <h3 className="text-slate-900 dark:text-white font-bold mb-4">Actividad Reciente</h3>
                             <div className="flex flex-col gap-3">
-                                {sessions.slice(0, 3).map((session, i) => (
+                                {(sessions || []).slice(0, 3).map((session, i) => (
                                     <div key={i} className="flex items-center gap-3 p-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg transition-colors">
                                         <div className="w-2 h-2 rounded-full bg-green-500"></div>
                                         <div className="flex-1">

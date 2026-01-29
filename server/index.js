@@ -175,10 +175,33 @@ app.get('/api/user/links', authenticateToken, async (req, res) => {
 // Get User Stats
 app.get('/api/user/stats', authenticateToken, async (req, res) => {
     try {
-        const totalLinks = await Link.count({ where: { createdBy: req.user.id } });
-        res.json({ totalLinks, totalLocations: 0 }); // Simplified for now
+        const links = await Link.findAll({ where: { createdBy: req.user.id } });
+        const totalLinks = links.length;
+        const linkIds = links.map(l => l.id);
+        const totalLocations = await Session.count({ where: { linkId: linkIds } });
+
+        res.json({ totalLinks, totalLocations });
     } catch (error) {
-        res.status(500).json({ message: 'Error' });
+        console.error('Stats error:', error);
+        res.status(500).json({ message: 'Error recuperando estadísticas' });
+    }
+});
+
+// Get User Sessions
+app.get('/api/user/sessions', authenticateToken, async (req, res) => {
+    try {
+        const links = await Link.findAll({ where: { createdBy: req.user.id }, attributes: ['id'] });
+        const linkIds = links.map(l => l.id);
+
+        const sessions = await Session.findAll({
+            where: { linkId: linkIds },
+            order: [['timestamp', 'DESC']],
+            limit: 50 // Limit for performance
+        });
+        res.json(sessions);
+    } catch (error) {
+        console.error('Sessions error:', error);
+        res.status(500).json({ message: 'Error recuperando sesiones' });
     }
 });
 

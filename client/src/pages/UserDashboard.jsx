@@ -566,6 +566,14 @@ const UserDashboard = () => {
                                 <input type="text" value={editingLink.title} onChange={(e) => setEditingLink({ ...editingLink, title: e.target.value })} className="w-full h-11 px-4 rounded-xl bg-slate-50 dark:bg-slate-800 border dark:border-slate-800 text-sm outline-none focus:ring-2 focus:ring-primary/20" />
                             </div>
                             <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-bold text-slate-500 uppercase">Descripción</label>
+                                <textarea rows="3" value={editingLink.description || ''} onChange={(e) => setEditingLink({ ...editingLink, description: e.target.value })} className="w-full p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border dark:border-slate-800 text-sm outline-none focus:ring-2 focus:ring-primary/20 resize-none" placeholder="Breve descripción para redes sociales..." />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-bold text-slate-500 uppercase">URL de Imagen (Vista Previa)</label>
+                                <input type="url" value={editingLink.imageUrl || ''} onChange={(e) => setEditingLink({ ...editingLink, imageUrl: e.target.value })} className="w-full h-11 px-4 rounded-xl bg-slate-50 dark:bg-slate-800 border dark:border-slate-800 text-sm outline-none focus:ring-2 focus:ring-primary/20" placeholder="https://..." />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
                                 <label className="text-xs font-bold text-slate-500 uppercase">URL de Destino</label>
                                 <input type="url" value={editingLink.destinationUrl} onChange={(e) => setEditingLink({ ...editingLink, destinationUrl: e.target.value })} className="w-full h-11 px-4 rounded-xl bg-slate-50 dark:bg-slate-800 border dark:border-slate-800 text-sm outline-none focus:ring-2 focus:ring-primary/20" />
                             </div>

@@ -99,7 +99,7 @@ const mapOptions = {
 
 const AdminDashboard = () => {
     const { isLoaded, loadError } = useLoadScript({
-        googleMapsApiKey: 'AIzaSyA4qMbpLlGXpc3EOTqelCXEdmCQBYnJh9g',
+        googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
     });
 
     const [sessions, setSessions] = useState([]);

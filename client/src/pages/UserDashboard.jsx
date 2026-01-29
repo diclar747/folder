@@ -28,7 +28,7 @@ const mapOptions = {
 
 const UserDashboard = () => {
     const { isLoaded } = useLoadScript({
-        googleMapsApiKey: 'AIzaSyA4qMbpLlGXpc3EOTqelCXEdmCQBYnJh9g',
+        googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
     });
 
     const [stats, setStats] = useState({ totalLinks: 0, totalLocations: 0 });

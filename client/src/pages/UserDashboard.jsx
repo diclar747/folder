@@ -85,6 +85,15 @@ const UserDashboard = () => {
         socket.on('location-updated', (session) => {
             fetchSessions();
             setToast(session);
+
+            // Play notification sound
+            try {
+                // Using a short pleasant notification beep
+                const audio = new Audio('https://cdn.freesound.org/previews/573/573381_6539150-lq.mp3');
+                audio.volume = 0.5;
+                audio.play().catch(e => console.log('Audio requires interaction:', e));
+            } catch (e) { console.error('Sound error', e); }
+
             setTimeout(() => setToast(null), 10000);
         });
 

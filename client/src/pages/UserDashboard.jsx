@@ -199,13 +199,23 @@ const UserDashboard = () => {
                         </button>
                     </nav>
                 </div>
-                <div className="mt-auto p-6 border-t border-slate-100 dark:border-slate-800">
+                <div className="mt-auto p-6 border-t border-slate-100 dark:border-slate-800 space-y-3">
                     <button
                         onClick={() => setActiveTab('create')}
                         className="flex w-full items-center justify-center gap-2 rounded-lg h-10 bg-primary text-white text-sm font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all"
                     >
-                        <span className="material-symbols-outlined text-lg">add</span>
-                        Nuevo Enlace
+                        <span className="material-symbols-outlined text-lg">add_link</span>
+                        Crear Enlace
+                    </button>
+                    <button
+                        onClick={() => {
+                            setActiveTab('create');
+                            // We could auto-fill generic data here if we had access to the form ref, but for now navigating is good
+                        }}
+                        className="flex w-full items-center justify-center gap-2 rounded-lg h-10 bg-green-600 text-white text-sm font-bold shadow-lg shadow-green-600/20 hover:bg-green-700 transition-all"
+                    >
+                        <span className="material-symbols-outlined text-lg">share_location</span>
+                        Compartir Ubicación
                     </button>
                 </div>
             </aside>
@@ -382,10 +392,13 @@ const UserDashboard = () => {
                                         <td className="px-6 py-4 text-sm text-slate-500">{new Date(link.createdAt).toLocaleDateString()}</td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-1">
+                                                <button onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(`Hola, por favor comparte tu ubicación conmigo entrando aquí: ${window.location.origin}/track/${link.id}`)}`, '_blank')} className="p-2 text-green-500 hover:bg-green-50 dark:hover:bg-green-900/10 rounded-lg transition-colors" title="Compartir en WhatsApp">
+                                                    <span className="text-lg font-bold">What</span>
+                                                </button>
                                                 <button onClick={() => setActiveTab('map')} className="p-2 text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/10 rounded-lg transition-colors" title="Ver en Mapa">
                                                     <span className="material-symbols-outlined text-[20px]">map</span>
                                                 </button>
-                                                <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/track/${link.id}`)} className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"><span className="material-symbols-outlined text-[20px]">content_copy</span></button>
+                                                <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/track/${link.id}`)} className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Copiar Enlace"><span className="material-symbols-outlined text-[20px]">content_copy</span></button>
                                                 <button onClick={() => setEditingLink({ ...link })} className="p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"><span className="material-symbols-outlined text-[20px]">edit</span></button>
                                                 <button onClick={() => handleDeleteLink(link.id)} className="p-2 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-colors"><span className="material-symbols-outlined text-[20px]">delete</span></button>
                                             </div>

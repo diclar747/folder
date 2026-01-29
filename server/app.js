@@ -266,6 +266,32 @@ app.get('/api/user/sessions', authenticateToken, async (req, res) => {
     }
 });
 
+// Track Visit (HTTP)
+app.post('/api/track', async (req, res) => {
+    const { linkId, lat, lng, userAgent } = req.body;
+    try {
+        if (!models || !models.Session) throw new Error('Models not loaded');
+
+        // Capture IP (Vercel/Proxy friendly)
+        const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
+
+        await models.Session.create({
+            linkId,
+            lat,
+            lng,
+            userAgent,
+            ip,
+            timestamp: new Date()
+        });
+
+        console.log(`Tracking saved for link ${linkId} from IP ${ip}`);
+        res.json({ message: 'Tracking saved' });
+    } catch (error) {
+        console.error('Tracking Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Setup DB
 app.get('/api/setup-db', async (req, res) => {
     try {

@@ -31,6 +31,18 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
+// Root Route (Welcome)
+app.get('/', (req, res) => {
+    res.json({
+        message: 'Ubicar API Server is running',
+        status: 'online',
+        endpoints: {
+            health: '/api/health',
+            debug: '/api/debug-env'
+        }
+    });
+});
+
 // --- ROUTES ---
 
 // Simple Ping

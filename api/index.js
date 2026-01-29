@@ -8,7 +8,7 @@ try {
             error: 'BOOTSTRAP_FAILURE',
             message: err.message,
             stack: err.stack,
-            hint: 'This error occurred before the Express app could load. Check for missing dependencies or syntax errors in server/index.js.'
+            hint: 'Fallo crítico antes de cargar Express. Revisa dependencias en el servidor.'
         });
     };
 }

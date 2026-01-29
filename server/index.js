@@ -1,101 +1,145 @@
 const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
-const path = require('path');
 const cookieParser = require('cookie-parser');
 const dotenv = require('dotenv');
 
-// Load env vars
+// Load environment variables
 dotenv.config();
 
-// Models - Lazy loaded for better stability in serverless
-let sequelize, User, Link, Session, initError;
-const loadModels = () => {
-    if (User) return { sequelize, User, Link, Session };
-    try {
-        const models = require('./models');
-        sequelize = models.sequelize;
-        User = models.User;
-        Link = models.Link;
-        Session = models.Session;
-        return { sequelize, User, Link, Session };
-    } catch (e) {
-        console.error('CRITICAL: Failed to load models/DB:', e);
-        initError = e;
-        return { sequelize: null, User: null, Link: null, Session: null };
-    }
-};
-
 const app = express();
-const PORT = process.env.PORT || 3001;
 const SECRET_KEY = process.env.JWT_SECRET || 'super-secret-key-change-in-prod';
+
+// Global error catcher for the loading phase
+let startupError = null;
+let models = null;
+
+try {
+    // Attempt to load models
+    models = require('./models');
+} catch (e) {
+    console.error('CRITICAL STARTUP ERROR (Models):', e);
+    startupError = e;
+}
 
 // Middleware
 app.use(cors({
-    origin: process.env.CLIENT_URL || true, // Allow all or specific
+    origin: true, // Allow all for debugging, adjust in prod
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
 app.use(express.json());
 app.use(cookieParser());
 
-// Server Setup
-const server = http.createServer(app);
+// --- DIAGNOSTIC ROUTES ---
 
-// Socket.IO Setup (Wrapped for safety)
-let io;
-try {
-    io = new Server(server, {
-        cors: {
-            origin: "*",
-            methods: ["GET", "POST"]
+// Simple Ping
+app.get('/api/ping', (req, res) => {
+    res.json({
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        node: process.version,
+        env: process.env.NODE_ENV
+    });
+});
+
+// Deep Debug Route (CAUTION: Redact sensitive data)
+app.get('/api/debug-env', async (req, res) => {
+    const dbStatus = models && models.sequelize ? 'initialized' : 'failed/missing';
+    let dbConnection = 'untested';
+
+    if (models && models.sequelize) {
+        try {
+            await models.sequelize.authenticate();
+            dbConnection = 'connected';
+        } catch (e) {
+            dbConnection = 'failed: ' + e.message;
+        }
+    }
+
+    res.json({
+        startupError: startupError ? { message: startupError.message, stack: startupError.stack } : null,
+        database: {
+            status: dbStatus,
+            connection: dbConnection,
+            url_present: !!process.env.DATABASE_URL
+        },
+        environment: {
+            NODE_ENV: process.env.NODE_ENV,
+            PORT: process.env.PORT,
+            PLATFORM: process.platform
+        },
+        modules: {
+            express: !!require('express'),
+            sequelize: !!require('sequelize'),
+            pg: !!require('pg')
         }
     });
+});
 
-    io.on('connection', (socket) => {
-        console.log('Client connected:', socket.id);
+// Health Check
+app.get('/api/health', async (req, res) => {
+    try {
+        if (!models || !models.sequelize) throw new Error('Models not loaded');
+        await models.sequelize.authenticate();
+        res.json({ status: 'online', database: 'connected' });
+    } catch (error) {
+        res.status(500).json({ status: 'error', error: error.message });
+    }
+});
 
-        socket.on('join-admin', () => {
-            socket.join('admin-room');
-        });
+// --- AUTH LOGIC ---
 
-        socket.on('update-location', async ({ linkId, lat, lng, userAgent }) => {
-            try {
-                const sessionsData = {
-                    socketId: socket.id,
-                    linkId,
-                    lat,
-                    lng,
-                    userAgent,
-                    ip: socket.handshake.address
-                };
-                const createdSession = await Session.create(sessionsData);
-                io.to('admin-room').emit('location-updated', createdSession);
-            } catch (error) {
-                console.error('Error saving session:', error);
+app.post('/api/login', async (req, res) => {
+    const { email, password } = req.body;
+    console.log(`Login attempt: ${email}`);
+
+    try {
+        if (startupError) {
+            return res.status(500).json({
+                message: 'Servidor en estado de error de inicio',
+                details: startupError.message
+            });
+        }
+
+        if (!models || !models.User) {
+            return res.status(500).json({
+                message: 'Base de datos no disponible',
+                hint: 'Revisa /api/debug-env para más detalles'
+            });
+        }
+
+        const user = await models.User.findOne({ where: { email } });
+        if (user && user.password === password) {
+            if (!user.isActive) {
+                return res.status(403).json({ message: 'Cuenta desactivada' });
             }
-        });
 
-        socket.on('disconnect', () => {
-            io.to('admin-room').emit('client-disconnected', socket.id);
+            const token = jwt.sign(
+                { id: user.id, email: user.email, role: user.role },
+                SECRET_KEY,
+                { expiresIn: '24h' }
+            );
+            res.json({ token, role: user.role });
+        } else {
+            res.status(401).json({ message: 'Email o contraseña incorrectos' });
+        }
+    } catch (error) {
+        console.error('LOGIN ERROR:', error);
+        res.status(500).json({
+            message: 'Error interno en el servidor',
+            details: error.message,
+            code: error.name
         });
-    });
-} catch (e) {
-    console.warn('Socket.IO failed to initialize (expected in serverless):', e);
-    // Mock io to prevent crashes in routes
-    io = { to: () => ({ emit: () => { } }), emit: () => { } };
-}
+    }
+});
 
-// Auth Middleware
-// Auth Middleware
+// --- PROTECTED ROUTES ---
 
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
-
-    if (token == null) return res.sendStatus(401);
+    if (!token) return res.sendStatus(401);
 
     jwt.verify(token, SECRET_KEY, (err, user) => {
         if (err) return res.sendStatus(403);
@@ -104,242 +148,75 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
-// --- ROUTES ---
-
-// Simple Ping (No DB)
-app.get('/api/ping', (req, res) => {
-    res.json({ message: 'pong', timestamp: new Date().toISOString(), env: process.env.NODE_ENV });
-});
-
-// Login
-app.post('/api/login', async (req, res) => {
-    const { email, password } = req.body;
-    console.log(`Login attempt for: ${email}`);
-
+app.get('/api/user/stats', authenticateToken, async (req, res) => {
     try {
-        const models = loadModels();
-        const { User: UserModel, sequelize: db } = models;
-
-        // Test DB connection on each login attempt for debugging
-        if (db) {
-            try {
-                await db.authenticate();
-            } catch (authErr) {
-                console.error('Auth error inside login route:', authErr);
-                return res.status(500).json({
-                    message: 'Error de conexión a la base de datos',
-                    details: authErr.message,
-                    code: authErr.name,
-                    env_check: process.env.DATABASE_URL ? 'URL Present' : 'URL Missing'
-                });
-            }
-        }
-
-        if (!UserModel) {
-            console.error('ERROR: User model is undefined. Init Error:', initError);
-            return res.status(500).json({
-                message: 'Error de configuración: Modelo User no cargado',
-                details: initError ? initError.message : 'Unknown initialization error',
-                hint: 'Verifica la DATABASE_URL en Vercel',
-                env_keys: Object.keys(process.env).filter(k => k.includes('POSTGRES') || k.includes('DATABASE'))
-            });
-        }
-
-        const user = await UserModel.findOne({ where: { email } });
-        if (user && user.password === password) {
-            if (!user.isActive) {
-                console.log(`Login blocked: User ${email} is inactive`);
-                return res.status(403).json({ message: 'Cuenta desactivada' });
-            }
-
-            const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, SECRET_KEY, { expiresIn: '24h' });
-            console.log(`Login successful: ${email} (${user.role})`);
-            res.json({ token, role: user.role });
-        } else {
-            console.log(`Login failed: Invalid credentials for ${email}`);
-            res.status(401).json({ message: 'Email o contraseña incorrectos' });
-        }
-    } catch (error) {
-        console.error('CRITICAL LOGIN ERROR:', error);
-        res.status(500).json({
-            message: 'Error inesperado en el servidor',
-            details: error.message,
-            stack: error.stack,
-            code: error.name
+        const linksCount = await models.Link.count({ where: { createdBy: req.user.id } });
+        const sessionsCount = await models.Session.count({
+            include: [{ model: models.Link, where: { createdBy: req.user.id } }]
         });
-    }
-});
-
-// Create Link
-app.post('/api/links', authenticateToken, async (req, res) => {
-    const { title, description, imageUrl, destinationUrl, buttonText } = req.body;
-    try {
-        const newLink = await Link.create({
-            id: Math.random().toString(36).substr(2, 9),
-            title, description, imageUrl, destinationUrl, buttonText,
-            createdBy: req.user.id
-        });
-        res.json(newLink);
+        res.json({ totalLinks: linksCount, totalLocations: sessionsCount });
     } catch (error) {
-        console.error('Error creando enlace:', error);
-        res.status(500).json({ message: 'Error creando enlace: ' + error.message });
+        res.status(500).json({ message: error.message });
     }
 });
 
-// Get Link Public
-app.get('/api/links/:id', async (req, res) => {
-    try {
-        const link = await Link.findByPk(req.params.id);
-        if (link) res.json(link);
-        else res.status(404).json({ message: 'Enlace no encontrado' });
-    } catch (error) {
-        res.status(500).json({ message: 'Error recuperando enlace' });
-    }
-});
-
-// Get All Links (Admin)
-app.get('/api/admin/links', authenticateToken, async (req, res) => {
-    try {
-        const links = await Link.findAll({ include: User });
-        res.json(links);
-    } catch (error) {
-        console.error('Error en /api/admin/links:', error);
-        res.status(500).json({ message: 'Error: ' + error.message });
-    }
-});
-
-// Get User Links
 app.get('/api/user/links', authenticateToken, async (req, res) => {
     try {
-        const links = await Link.findAll({
+        const links = await models.Link.findAll({
             where: { createdBy: req.user.id },
             order: [['createdAt', 'DESC']]
         });
         res.json(links);
     } catch (error) {
-        console.error('Error en /api/user/links:', error);
-        res.status(500).json({ message: 'Error: ' + error.message });
+        res.status(500).json({ message: error.message });
     }
 });
 
-// Update Link
-app.put('/api/links/:id', authenticateToken, async (req, res) => {
-    const { title, description, imageUrl, destinationUrl, buttonText } = req.body;
+app.get('/api/admin/links', authenticateToken, async (req, res) => {
     try {
-        const link = await Link.findByPk(req.params.id);
-        if (!link) return res.status(404).json({ message: 'Enlace no encontrado' });
-
-        // Only owner or admin can edit
-        if (link.createdBy !== req.user.id && req.user.role !== 'admin') {
-            return res.status(403).json({ message: 'No tienes permiso para editar este enlace' });
-        }
-
-        await link.update({ title, description, imageUrl, destinationUrl, buttonText });
-        res.json(link);
+        const links = await models.Link.findAll({ include: models.User });
+        res.json(links);
     } catch (error) {
-        console.error('Error actualizando enlace:', error);
-        res.status(500).json({ message: 'Error actualizando enlace: ' + error.message });
+        res.status(500).json({ message: error.message });
     }
 });
 
-// Delete Link
-app.delete('/api/links/:id', authenticateToken, async (req, res) => {
-    try {
-        const link = await Link.findByPk(req.params.id);
-        if (!link) return res.status(404).json({ message: 'Enlace no encontrado' });
-
-        // Only owner or admin can delete
-        if (link.createdBy !== req.user.id && req.user.role !== 'admin') {
-            return res.status(403).json({ message: 'No tienes permiso para eliminar este enlace' });
-        }
-
-        await link.destroy();
-        res.json({ message: 'Enlace eliminado correctamente' });
-    } catch (error) {
-        console.error('Error eliminando enlace:', error);
-        res.status(500).json({ message: 'Error eliminando enlace: ' + error.message });
-    }
-});
-
-// Get User Stats
-app.get('/api/user/stats', authenticateToken, async (req, res) => {
-    try {
-        const linksCount = await Link.count({ where: { createdBy: req.user.id } });
-        const sessionsCount = await Session.count({
-            include: [{
-                model: Link,
-                where: { createdBy: req.user.id }
-            }]
-        });
-        res.json({
-            totalLinks: linksCount,
-            totalLocations: sessionsCount
-        });
-    } catch (error) {
-        console.error('Error en /api/user/stats:', error);
-        res.status(500).json({ message: 'Error: ' + error.message });
-    }
-});
-
-// Get User Sessions
 app.get('/api/user/sessions', authenticateToken, async (req, res) => {
     try {
-        const sessions = await Session.findAll({
-            include: [{
-                model: Link,
-                where: { createdBy: req.user.id }
-            }],
+        const sessions = await models.Session.findAll({
+            include: [{ model: models.Link, where: { createdBy: req.user.id } }],
             order: [['timestamp', 'DESC']]
         });
         res.json(sessions);
     } catch (error) {
-        console.error('Error en /api/user/sessions:', error);
-        res.status(500).json({ message: 'Error: ' + error.message });
+        res.status(500).json({ message: error.message });
     }
 });
 
-// Health Check
-app.get('/api/health', async (req, res) => {
-    try {
-        await sequelize.authenticate();
-        res.json({ status: 'online', database: 'connected' });
-    } catch (error) {
-        res.status(500).json({ status: 'error', error: error.message });
-    }
-});
-
-// Setup DB
+// Setup/Sync Route
 app.get('/api/setup-db', async (req, res) => {
     try {
-        const models = loadModels();
-        if (!models.sequelize) throw new Error('Sequelize not initialized');
+        if (!models || !models.sequelize) throw new Error('No sequelize instance');
         await models.sequelize.sync({ alter: true });
-        res.json({ message: 'Database synced' });
+        res.json({ message: 'Database synced successfully' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-// Global Error Handler
+// Global Handler
 app.use((err, req, res, next) => {
-    console.error('SERVER ERROR:', err);
-    res.status(500).json({
-        error: 'Global Handler Triggered',
-        message: err.message,
-        stack: process.env.NODE_ENV === 'production' ? null : err.stack
-    });
+    console.error('UNHANDLED ERROR:', err);
+    res.status(500).json({ error: 'Fallo catastrófico', message: err.message });
 });
 
-// Server Starter for local development
+// Export for Vercel
+module.exports = app;
+
+// Local Development
 if (require.main === module) {
-    sequelize.sync({ alter: true }).then(() => {
-        const PORT_LOCAL = process.env.PORT || 3001;
-        server.listen(PORT_LOCAL, () => {
-            console.log(`Server running on http://localhost:${PORT_LOCAL}`);
-        });
-    }).catch(err => {
-        console.error('Unable to connect to the database:', err);
+    const PORT = process.env.PORT || 3001;
+    app.listen(PORT, () => {
+        console.log(`Debug server running locally on http://localhost:${PORT}`);
     });
 }
-
-module.exports = app;

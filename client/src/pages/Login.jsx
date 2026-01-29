@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import api from '../services/api';
 
 const Login = () => {
     const [email, setEmail] = useState('');
@@ -22,16 +23,30 @@ const Login = () => {
                 setError('Credenciales inválidas. Por favor intenta de nuevo.');
             }
         } catch (err) {
+            // Auto-fix for first-time Vercel deployments (Missing Tables)
+            const errorMsg = err.response?.data?.message || err.message;
+            if (err.response?.status === 500 && (errorMsg?.includes('relation') && errorMsg?.includes('does not exist'))) {
+                setError('Inicializando base de datos por primera vez...');
+                try {
+                    await api.get('/setup-db');
+                    // Retry login once
+                    const retrySuccess = await login(email, password);
+                    if (retrySuccess) {
+                        if (email === 'admin@admin') navigate('/admin');
+                        else navigate('/dashboard');
+                        return;
+                    }
+                } catch (setupErr) {
+                    console.error("Auto-setup failed", setupErr);
+                    setError('Error inicializando DB: ' + (setupErr.response?.data?.error || setupErr.message));
+                    return;
+                }
+            }
+
             console.error('Full login error:', err);
             let errorMessage = err.response?.data?.message || err.message || 'Error de conexión.';
             if (err.response?.data?.details) {
                 errorMessage += ` (Detalles: ${err.response.data.details})`;
-            }
-            if (err.response?.data?.error) {
-                errorMessage += ` (Error: ${err.response.data.error})`;
-            }
-            if (err.response?.data?.hint) {
-                errorMessage += `\nSugerencia: ${err.response.data.hint}`;
             }
             setError(errorMessage);
         }

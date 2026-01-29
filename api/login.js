@@ -1,21 +1,7 @@
 const jwt = require('jsonwebtoken');
 
-// Dynamically import modules to handle Vercel's serverless environment
-let initialized = false;
-let User, sequelize;
-
-async function initializeModels() {
-  if (!initialized) {
-    const dbModule = await import('../server/config/database.js');
-    sequelize = dbModule.default || dbModule;
-
-    const modelsModule = await import('../server/models/index.js');
-    const models = modelsModule.default || modelsModule;
-    User = models.User;
-
-    initialized = true;
-  }
-}
+// For Vercel, we need to dynamically import modules inside the handler
+// since top-level await is not supported in CommonJS in the same way
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -25,8 +11,13 @@ export default async function handler(req, res) {
   const { email, password } = req.body;
 
   try {
-    // Initialize models in serverless environment
-    await initializeModels();
+    // Dynamically import sequelize and models inside the handler
+    const dbModule = await import('../server/config/database.js');
+    const sequelize = dbModule.default || dbModule;
+
+    const modelsModule = await import('../server/models/index.js');
+    const models = modelsModule.default || modelsModule;
+    const User = models.User;
 
     // Authenticate with database
     await sequelize.authenticate();
@@ -34,9 +25,6 @@ export default async function handler(req, res) {
     // Find user by email
     const user = await User.findOne({ where: { email } });
 
-    // Note: In a real application, passwords should be hashed.
-    // For now, we'll keep the original comparison to match existing data
-    // but in a secure implementation, you'd use bcrypt.compare(password, user.password)
     if (user && user.password === password) {
       if (!user.isActive) {
         return res.status(403).json({ message: 'Cuenta desactivada' });

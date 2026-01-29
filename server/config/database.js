@@ -1,6 +1,9 @@
 const { Sequelize } = require('sequelize');
 
-const databaseUrl = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_zaGO5Fmeokp9@ep-jolly-shape-ah45awdh-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require';
+// Use the appropriate database URL for Vercel deployment
+const databaseUrl = process.env.DATABASE_URL ||
+                  process.env.POSTGRES_URL ||
+                  'postgresql://neondb_owner:npg_zaGO5Fmeokp9@ep-jolly-shape-ah45awdh-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require';
 
 const sequelize = new Sequelize(databaseUrl, {
     dialect: 'postgres',
@@ -11,7 +14,13 @@ const sequelize = new Sequelize(databaseUrl, {
             rejectUnauthorized: false
         }
     },
-    logging: false // Disable logging in production, enable for debugging
+    logging: false, // Disable logging in production, enable for debugging
+    pool: {
+        max: 20,
+        min: 0,
+        acquire: 30000,
+        idle: 10000
+    }
 });
 
 module.exports = sequelize;

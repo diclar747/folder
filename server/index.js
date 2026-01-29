@@ -136,7 +136,8 @@ app.post('/api/links', authenticateToken, async (req, res) => {
         });
         res.json(newLink);
     } catch (error) {
-        res.status(500).json({ message: 'Error creando enlace' });
+        console.error('Error creando enlace:', error);
+        res.status(500).json({ message: 'Error creando enlace: ' + error.message });
     }
 });
 

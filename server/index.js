@@ -103,6 +103,10 @@ app.get('/api/ping', (req, res) => {
 app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
     try {
+        if (!User) {
+            throw new Error('Database models not loaded. Check server logs.');
+        }
+
         const user = await User.findOne({ where: { email } });
         if (user && user.password === password) {
             if (!user.isActive) return res.status(403).json({ message: 'Cuenta desactivada' });

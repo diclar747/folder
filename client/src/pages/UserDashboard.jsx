@@ -19,7 +19,7 @@ const center = {
 
 const mapOptions = {
     disableDefaultUI: true,
-    mapTypeId: "satellite", // User requested satellite mode
+    mapTypeId: "hybrid", // "hybrid" shows satellite + street names (better than simple satellite)
     styles: [
         { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
         { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
@@ -68,6 +68,13 @@ const UserDashboard = () => {
             );
         }
 
+        // POLLING FALLBACK: Vercel Serverless does not support persistent WebSockets well.
+        // We use polling every 4 seconds to ensure data appears "live".
+        const intervalId = setInterval(() => {
+            fetchSessions();
+        }, 4000);
+
+        // Socket logic kept for local dev, but polling ensures production works
         const socket = io('/', { path: '/socket.io' });
         socketRef.current = socket;
 
@@ -78,11 +85,12 @@ const UserDashboard = () => {
         socket.on('location-updated', (session) => {
             fetchSessions();
             setToast(session);
-            setTimeout(() => setToast(null), 10000); // 10s duration
+            setTimeout(() => setToast(null), 10000);
         });
 
         return () => {
             socket.disconnect();
+            clearInterval(intervalId); // Clear polling on unmount
         };
     }, []);
 

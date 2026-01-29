@@ -294,21 +294,24 @@ const AdminDashboard = () => {
                     <>
                         {/* Map Background Layer - Now Real Map */}
                         <div className="absolute inset-0 z-0 bg-background-dark">
-                            <GoogleMap
-                                mapContainerStyle={mapContainerStyle}
-                                zoom={selectedSession ? 15 : 2}
-                                center={selectedSession ? { lat: selectedSession.lat, lng: selectedSession.lng } : center}
-                                options={mapOptions}
-                            >
-                                {sessions.map(s => (
-                                    <Marker
-                                        key={s.id || s.socketId}
-                                        position={{ lat: s.lat, lng: s.lng }}
-                                        title={`${s.ip} - ${s.userAgent}`}
-                                        animation={selectedSession?.id === s.id && isLoaded && window.google?.maps ? window.google.maps.Animation.BOUNCE : null}
-                                    />
-                                ))}
-                            </GoogleMap>
+                            {isLoaded && (
+                                <GoogleMap
+                                    mapContainerStyle={mapContainerStyle}
+                                    zoom={selectedSession ? 15 : 2}
+                                    center={selectedSession ? { lat: selectedSession.lat, lng: selectedSession.lng } : center}
+                                    options={mapOptions}
+                                >
+                                    {sessions.map(s => (
+                                        <Marker
+                                            key={s.id || s.socketId}
+                                            position={{ lat: s.lat, lng: s.lng }}
+                                            title={`${s.ip} - ${s.userAgent}`}
+                                            animation={selectedSession?.id === s.id && isLoaded && window.google?.maps ? window.google.maps.Animation.BOUNCE : null}
+                                        />
+                                    ))}
+                                </GoogleMap>
+                            )}
+                            {!isLoaded && <div className="flex items-center justify-center h-full text-white/50">Cargando Mapa...</div>}
 
                             <div className="absolute inset-0 map-gradient-overlay pointer-events-none"></div>
 

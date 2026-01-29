@@ -31,7 +31,7 @@ const UserDashboard = () => {
     const { logout } = useAuth();
     const navigate = useNavigate();
 
-    const { isLoaded } = useLoadScript({
+    const { isLoaded, loadError } = useLoadScript({
         googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyA4qMbpLlGXpc3EOTqelCXEdmCQBYnJh9g',
     });
 
@@ -143,6 +143,9 @@ const UserDashboard = () => {
         </button>
     );
 
+    if (loadError) return <div className="flex items-center justify-center h-screen text-red-500">Error loading maps</div>;
+    if (!isLoaded) return <div className="flex items-center justify-center h-screen text-slate-500">Loading Maps...</div>;
+
     return (
         <div className="bg-background-light dark:bg-background-dark min-h-screen flex font-display">
             <aside className="w-64 bg-white dark:bg-background-dark border-r border-slate-200 dark:border-slate-800 flex flex-col fixed h-full z-20">
@@ -228,9 +231,12 @@ const UserDashboard = () => {
                                 </div>
                             </div>
                             <div className="bg-white dark:bg-surface-dark rounded-xl border border-slate-100 dark:border-border-dark shadow-sm p-6 h-[400px] relative overflow-hidden">
-                                <GoogleMap mapContainerStyle={mapContainerStyle} zoom={2} center={center} options={mapOptions}>
-                                    {sessions.map(s => <Marker key={s.id || s.socketId} position={{ lat: s.lat, lng: s.lng }} />)}
-                                </GoogleMap>
+                                {isLoaded && (
+                                    <GoogleMap mapContainerStyle={mapContainerStyle} zoom={2} center={center} options={mapOptions}>
+                                        {sessions.map(s => <Marker key={s.id || s.socketId} position={{ lat: s.lat, lng: s.lng }} />)}
+                                    </GoogleMap>
+                                )}
+                                {!isLoaded && <div className="flex items-center justify-center h-full text-slate-500">Cargando Mapa...</div>}
                             </div>
                         </div>
                         <div className="bg-white dark:bg-surface-dark p-6 rounded-xl border border-slate-100 dark:border-border-dark shadow-sm overflow-hidden flex flex-col h-[520px]">

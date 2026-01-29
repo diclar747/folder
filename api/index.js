@@ -1,5 +1,5 @@
 try {
-    const app = require('../server/index');
+    const app = require('../server/app');
     module.exports = app;
 } catch (err) {
     console.error('BOOTSTRAP ERROR:', err);
@@ -8,7 +8,7 @@ try {
             error: 'BOOTSTRAP_FAILURE',
             message: err.message,
             stack: err.stack,
-            hint: 'Fallo crítico antes de cargar Express. Revisa dependencias en el servidor.'
+            hint: 'Fallo crítico al cargar server/app.js. Revisa dependencias.'
         });
     };
 }

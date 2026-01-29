@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { GoogleMap, useLoadScript, Marker } from '@react-google-maps/api';
+import { GoogleMap, useLoadScript, Marker, InfoWindow } from '@react-google-maps/api';
 import { io } from 'socket.io-client';
 import api from '../services/api';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
@@ -207,16 +207,6 @@ const UserDashboard = () => {
                         <span className="material-symbols-outlined text-lg">add_link</span>
                         Crear Enlace
                     </button>
-                    <button
-                        onClick={() => {
-                            setActiveTab('create');
-                            // We could auto-fill generic data here if we had access to the form ref, but for now navigating is good
-                        }}
-                        className="flex w-full items-center justify-center gap-2 rounded-lg h-10 bg-green-600 text-white text-sm font-bold shadow-lg shadow-green-600/20 hover:bg-green-700 transition-all"
-                    >
-                        <span className="material-symbols-outlined text-lg">share_location</span>
-                        Compartir Ubicación
-                    </button>
                 </div>
             </aside>
 
@@ -356,8 +346,34 @@ const UserDashboard = () => {
                                             url: "http://maps.google.com/mapfiles/ms/icons/red-dot.png"
                                         }}
                                         title={`IP: ${s.ip} - ${s.userAgent}`}
+                                        onClick={() => setSelectedSession(s)}
                                     />
                                 ))}
+
+                                {/* InfoWindow for Selected Marker */}
+                                {selectedSession && (
+                                    <InfoWindow
+                                        position={{ lat: selectedSession.lat, lng: selectedSession.lng }}
+                                        onCloseClick={() => setSelectedSession(null)}
+                                    >
+                                        <div className="p-2 min-w-[200px]">
+                                            <p className="font-bold text-slate-800 text-sm mb-1">Objetivo Detectado</p>
+                                            <p className="text-xs text-slate-600 mb-2">IP: {selectedSession.ip}</p>
+                                            <p className="text-xs text-slate-500 italic mb-3">{new Date(selectedSession.timestamp).toLocaleString()}</p>
+
+                                            <button
+                                                onClick={() => {
+                                                    const mapLink = `https://www.google.com/maps/search/?api=1&query=${selectedSession.lat},${selectedSession.lng}`;
+                                                    const text = `Ubicación detectada: ${mapLink}`;
+                                                    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                                                }}
+                                                className="w-full flex items-center justify-center gap-2 bg-[#25D366] text-white py-2 rounded-lg text-xs font-bold hover:bg-[#20bd5a] transition-colors"
+                                            >
+                                                Compartir Ubicación
+                                            </button>
+                                        </div>
+                                    </InfoWindow>
+                                )}
                             </GoogleMap>
                         )}
                         <div className="absolute top-4 right-4 bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/20 text-white">
@@ -392,9 +408,6 @@ const UserDashboard = () => {
                                         <td className="px-6 py-4 text-sm text-slate-500">{new Date(link.createdAt).toLocaleDateString()}</td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-1">
-                                                <button onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(`Hola, por favor comparte tu ubicación conmigo entrando aquí: ${window.location.origin}/track/${link.id}`)}`, '_blank')} className="p-2 text-green-500 hover:bg-green-50 dark:hover:bg-green-900/10 rounded-lg transition-colors" title="Compartir en WhatsApp">
-                                                    <span className="text-lg font-bold">What</span>
-                                                </button>
                                                 <button onClick={() => setActiveTab('map')} className="p-2 text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/10 rounded-lg transition-colors" title="Ver en Mapa">
                                                     <span className="material-symbols-outlined text-[20px]">map</span>
                                                 </button>

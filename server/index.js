@@ -337,34 +337,20 @@ app.get('/api/setup-db', async (req, res) => {
     }
 });
 
-// Initialize DB and Server
-await User.create({
-    email: adminEmail,
-    password: '1234567',
-    role: 'admin'
+// Broadcast simple ping
+app.get('/api/ping', (req, res) => {
+    res.json({ message: 'pong', timestamp: new Date().toISOString() });
 });
-console.log('Admin user created');
-    }
 
-// Seed Standard User if not exists
-const userEmail = 'user@user.com';
-const userUser = await User.findOne({ where: { email: userEmail } });
-if (!userUser) {
-    await User.create({
-        email: userEmail,
-        password: '1234567',
-        role: 'user'
-    });
-    console.log('Standard user created');
-}
-
+// Initialize DB and Server (Only for local dev / standalone)
 if (require.main === module) {
-    server.listen(PORT, () => {
-        console.log(`Server running on http://localhost:${PORT}`);
+    sequelize.sync({ alter: true }).then(() => {
+        server.listen(PORT, () => {
+            console.log(`Server running on http://localhost:${PORT}`);
+        });
+    }).catch(err => {
+        console.error('Unable to connect to the database:', err);
     });
 }
-}).catch (err => {
-    console.error('Unable to connect to the database:', err);
-});
 
 module.exports = app;

@@ -54,6 +54,7 @@ const UserDashboard = () => {
     const [cleanId, setCleanId] = useState(null);
     const [clearAllMap, setClearAllMap] = useState(false);
     const [showUserMenu, setShowUserMenu] = useState(false);
+    const [userProfile, setUserProfile] = useState(null);
     const socketRef = useRef();
     const lastSessionIdRef = useRef(null);
 

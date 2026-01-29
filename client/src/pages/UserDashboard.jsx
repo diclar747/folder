@@ -175,7 +175,7 @@ const UserDashboard = () => {
                         <div className="bg-primary rounded-lg p-1.5 text-white">
                             <span className="material-symbols-outlined text-xl">radar</span>
                         </div>
-                        <h1 className="text-slate-900 dark:text-white font-bold text-lg">GeoRastreador</h1>
+                        <h1 className="text-slate-900 dark:text-white font-bold text-lg">GeoRastreador <span className="text-[10px] text-primary">v1.2 Sat</span></h1>
                     </div>
                     <nav className="flex flex-col gap-1">
                         <SidebarItem id="overview" icon="dashboard" label="Resumen" />

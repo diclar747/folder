@@ -51,6 +51,7 @@ const UserDashboard = () => {
     const [toast, setToast] = useState(null);
     const [deleteId, setDeleteId] = useState(null);
     const [cleanId, setCleanId] = useState(null);
+    const [clearAllMap, setClearAllMap] = useState(false);
     const socketRef = useRef();
 
     useEffect(() => {
@@ -149,12 +150,16 @@ const UserDashboard = () => {
         }
     };
 
-    const handleClearMap = async () => {
-        if (!window.confirm('¿Estás seguro de que quieres borrar TODAS las ubicaciones del mapa?')) return;
+    const handleClearMap = () => {
+        setClearAllMap(true);
+    };
+
+    const confirmClearAllMap = async () => {
         try {
             await api.delete('/user/sessions');
             setSessions([]);
             fetchSessions();
+            setClearAllMap(false);
         } catch (e) {
             alert('Error limpiando mapa: ' + e.message);
         }
@@ -537,30 +542,30 @@ const UserDashboard = () => {
                 </div>
             )}
 
-            {/* Custom Clean History Confirmation Modal */}
-            {cleanId && (
+            {/* Custom Clear ALL Map Confirmation Modal */}
+            {clearAllMap && (
                 <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-sm overflow-hidden scale-in-center">
                         <div className="p-6 text-center">
-                            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/20 mb-4">
-                                <span className="material-symbols-outlined text-3xl text-amber-600">cleaning_services</span>
+                            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/20 mb-4">
+                                <span className="material-symbols-outlined text-3xl text-red-600">delete_forever</span>
                             </div>
-                            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">¿Limpiar Historial?</h3>
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">¿Borrar Todo?</h3>
                             <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
-                                ¿Estás seguro de que quieres borrar el historial de ubicaciones de este enlace? El enlace se conservará.
+                                ¿Estás seguro de que quieres borrar TODAS las ubicaciones del mapa? Esta acción no se puede deshacer.
                             </p>
                             <div className="flex gap-3">
                                 <button
-                                    onClick={() => setCleanId(null)}
+                                    onClick={() => setClearAllMap(false)}
                                     className="flex-1 h-11 rounded-xl border border-slate-200 dark:border-slate-800 text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                                 >
                                     Cancelar
                                 </button>
                                 <button
-                                    onClick={confirmClean}
-                                    className="flex-1 h-11 rounded-xl bg-amber-500 text-white text-sm font-bold shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-colors"
+                                    onClick={confirmClearAllMap}
+                                    className="flex-1 h-11 rounded-xl bg-red-600 text-white text-sm font-bold shadow-lg shadow-red-600/20 hover:bg-red-700 transition-colors"
                                 >
-                                    Limpiar
+                                    Borrar Todo
                                 </button>
                             </div>
                         </div>

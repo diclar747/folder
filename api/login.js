@@ -1,34 +1,5 @@
 import jwt from 'jsonwebtoken';
 
-// Global variables to cache the database connection and models
-let cachedDb = null;
-let cachedUserModel = null;
-
-async function connectToDatabase() {
-  if (cachedDb && cachedUserModel) {
-    return { sequelize: cachedDb, User: cachedUserModel };
-  }
-
-  try {
-    // Dynamically import the database and models
-    const dbModule = await import('../server/config/database.js');
-    const sequelize = dbModule.default || dbModule;
-
-    const modelsModule = await import('../server/models/index.js');
-    const models = modelsModule.default || modelsModule;
-    const User = models.User;
-
-    // Cache the connection and model for subsequent requests
-    cachedDb = sequelize;
-    cachedUserModel = User;
-
-    return { sequelize, User };
-  } catch (error) {
-    console.error('Database connection error:', error);
-    throw error;
-  }
-}
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
@@ -37,8 +8,13 @@ export default async function handler(req, res) {
   const { email, password } = req.body;
 
   try {
-    // Connect to database and get models
-    const { sequelize, User } = await connectToDatabase();
+    // Dynamically import the database and models for each request
+    const dbModule = await import('../server/config/database.js');
+    const sequelize = dbModule.default || dbModule;
+
+    const modelsModule = await import('../server/models/index.js');
+    const models = modelsModule.default || modelsModule;
+    const User = models.User;
 
     // Authenticate with database
     await sequelize.authenticate();

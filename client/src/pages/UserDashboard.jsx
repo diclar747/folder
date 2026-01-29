@@ -114,14 +114,16 @@ const UserDashboard = () => {
 
     const fetchData = async () => {
         try {
-            const [statsRes, linksRes, sessionsRes] = await Promise.all([
+            const [statsRes, linksRes, sessionsRes, profileRes] = await Promise.all([
                 api.get('/user/stats'),
                 api.get('/user/links'),
-                api.get('/user/sessions')
+                api.get('/user/sessions'),
+                api.get('/user/profile')
             ]);
             setStats(statsRes.data);
             setLinks(linksRes.data);
             setSessions(sessionsRes.data);
+            setUserProfile(profileRes.data);
 
             // Init ref to avoid initial beep
             if (sessionsRes.data.length > 0) {

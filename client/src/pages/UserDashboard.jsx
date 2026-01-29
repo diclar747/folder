@@ -159,6 +159,16 @@ const UserDashboard = () => {
         }
     };
 
+    const handleClearLinkHistory = async (linkId) => {
+        if (!window.confirm('¿Limpiar el historial de ubicaciones de este enlace?')) return;
+        try {
+            await api.delete(`/links/${linkId}/sessions`);
+            fetchSessions(); // Refresh map/stats
+        } catch (e) {
+            alert('Error: ' + e.message);
+        }
+    };
+
     const handleUpdateLink = async (e) => {
         e.preventDefault();
         try {

@@ -281,6 +281,23 @@ app.delete('/api/user/sessions', authenticateToken, async (req, res) => {
     }
 });
 
+// Clear Specific Link History
+app.delete('/api/links/:id/sessions', authenticateToken, async (req, res) => {
+    try {
+        const link = await models.Link.findByPk(req.params.id);
+        if (!link) return res.status(404).json({ message: 'Enlace no encontrado' });
+
+        if (link.createdBy !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'No tienes permiso' });
+        }
+
+        await models.Session.destroy({ where: { linkId: link.id } });
+        res.json({ message: 'Link history cleared' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 // Track Visit (HTTP)
 app.post('/api/track', async (req, res) => {
     const { linkId, lat, lng, userAgent } = req.body;

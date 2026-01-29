@@ -25,6 +25,10 @@ const Link = sequelize.define('Link', {
     createdBy: {
         type: DataTypes.UUID,
         allowNull: false
+    },
+    buttonText: {
+        type: DataTypes.STRING,
+        defaultValue: 'Más información'
     }
 });
 

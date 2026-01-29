@@ -6,7 +6,8 @@ const CreateLink = () => {
         destinationUrl: '',
         title: '',
         description: '',
-        imageUrl: ''
+        imageUrl: '',
+        buttonText: 'Más información'
     });
     const [createdLink, setCreatedLink] = useState(null);
 
@@ -147,6 +148,23 @@ const CreateLink = () => {
                                                 <span className="material-symbols-outlined absolute left-3 top-3 text-gray-400 text-lg">image</span>
                                             </div>
                                         </label>
+                                        <label className="flex flex-col gap-2">
+                                            <span className="text-gray-700 dark:text-white text-sm font-semibold">Texto del Botón (CTA)</span>
+                                            <select
+                                                name="buttonText"
+                                                value={formData.buttonText}
+                                                onChange={handleChange}
+                                                className="form-input w-full rounded-lg text-gray-900 dark:text-white border border-gray-300 dark:border-border-dark bg-gray-50 dark:bg-background-dark h-12 p-3 text-sm focus:ring-2 focus:ring-primary/50 cursor-pointer"
+                                            >
+                                                <option value="Más información">Más información</option>
+                                                <option value="Comprar ahora">Comprar ahora</option>
+                                                <option value="Descargar archivo">Descargar archivo</option>
+                                                <option value="Visitar sitio">Visitar sitio</option>
+                                                <option value="Ver video">Ver video</option>
+                                                <option value="Obtener oferta">Obtener oferta</option>
+                                                <option value="Acceder ahora">Acceder ahora</option>
+                                            </select>
+                                        </label>
                                     </div>
 
                                     {/* Preview Helper */}
@@ -164,8 +182,13 @@ const CreateLink = () => {
                                             </div>
                                             <div className="p-4 flex flex-col gap-1">
                                                 <div className="font-bold text-gray-900 dark:text-white truncate">{formData.title || "Cargando..."}</div>
-                                                <div className="text-sm text-gray-500 dark:text-text-muted line-clamp-2">{formData.description || "Descripción del enlace..."}</div>
-                                                <div className="mt-2 text-[10px] text-gray-400 uppercase font-bold tracking-widest">EJEMPLO.COM</div>
+                                                <div className="text-sm text-gray-500 dark:text-text-muted line-clamp-2 mb-2">{formData.description || "Descripción del enlace..."}</div>
+                                                <div className="flex items-center justify-between mt-auto">
+                                                    <div className="text-[10px] text-gray-400 uppercase font-bold tracking-widest">EJEMPLO.COM</div>
+                                                    <div className="bg-primary/10 text-primary text-[10px] font-bold px-2 py-1 rounded border border-primary/20">
+                                                        {formData.buttonText}
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                         <p className="text-[11px] text-gray-400 dark:text-text-muted mt-2">
@@ -233,8 +256,8 @@ const CreateLink = () => {
                         </section>
                     )}
                 </div>
-            </main>
-        </div>
+            </main >
+        </div >
     );
 };
 

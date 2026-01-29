@@ -127,11 +127,11 @@ app.post('/api/login', async (req, res) => {
 
 // Create Link
 app.post('/api/links', authenticateToken, async (req, res) => {
-    const { title, description, imageUrl, destinationUrl } = req.body;
+    const { title, description, imageUrl, destinationUrl, buttonText } = req.body;
     try {
         const newLink = await Link.create({
             id: Math.random().toString(36).substr(2, 9),
-            title, description, imageUrl, destinationUrl,
+            title, description, imageUrl, destinationUrl, buttonText,
             createdBy: req.user.id
         });
         res.json(newLink);

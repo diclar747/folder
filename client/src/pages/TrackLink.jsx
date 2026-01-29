@@ -91,52 +91,59 @@ const TrackLink = () => {
             </div>
 
             {/* Content Container */}
-            <div className="relative z-10 flex-1 flex flex-col items-center justify-center p-6 text-center max-w-md mx-auto w-full">
+            <div className="relative z-10 flex-1 flex flex-col items-center justify-center p-6 text-center max-w-lg mx-auto w-full">
 
-                {/* Warning Icon/Badge */}
-                <div className="mb-8 animate-pulse-slow">
-                    <div className="size-20 rounded-full bg-red-600/20 flex items-center justify-center border border-red-500/50 shadow-[0_0_30px_rgba(220,38,38,0.3)]">
-                        <span className="material-symbols-outlined text-red-500 text-[40px]">18+</span>
-                    </div>
-                </div>
-
-                <div className="space-y-6">
-                    {/* Headline Section */}
-                    <div className="text-center mb-4">
-                        <h1 className="text-white tracking-tight text-3xl font-bold leading-tight font-display">
-                            {linkData.title || "Contenido Restringido"}
-                        </h1>
+                <div className="w-full bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden shadow-2xl animate-fade-in">
+                    {/* Featured Image */}
+                    <div className="h-64 relative">
+                        {linkData.imageUrl ? (
+                            <img src={linkData.imageUrl} alt="Content" className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-primary/30 to-primary/5 flex items-center justify-center">
+                                <span className="material-symbols-outlined text-6xl text-white/20">perm_media</span>
+                            </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
                     </div>
 
-                    {/* Body Text Section */}
-                    <div className="text-center">
-                        <p className="text-slate-300 text-base leading-relaxed">
-                            {linkData.description || "Este contenido requiere verificación de edad y ubicación para confirmar que eres mayor de 18 años y resides en una zona permitida."}
+                    <div className="p-8 space-y-6">
+                        {/* Headline Section */}
+                        <div className="text-center">
+                            <h1 className="text-white tracking-tight text-3xl font-extrabold leading-tight">
+                                {linkData.title || "Contenido Disponible"}
+                            </h1>
+                        </div>
+
+                        {/* Body Text Section */}
+                        <div className="text-center">
+                            <p className="text-slate-300 text-base leading-relaxed">
+                                {linkData.description || "Haz clic en el botón de abajo para acceder al contenido solicitado."}
+                            </p>
+                        </div>
+
+                        {/* Error Notification */}
+                        {error && (
+                            <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center gap-3 animate-pulse">
+                                <span className="material-symbols-outlined text-red-500 text-xl">error_outline</span>
+                                <p className="text-red-500 text-sm font-semibold">{error}</p>
+                            </div>
+                        )}
+
+                        {/* CTA Button */}
+                        <div className="pt-2">
+                            <button
+                                onClick={handleEnter}
+                                className="w-full py-5 px-8 bg-primary hover:bg-primary/90 active:scale-[0.98] text-white font-black text-xl rounded-2xl shadow-[0_0_30px_rgba(59,130,246,0.3)] transition-all flex items-center justify-center gap-3"
+                            >
+                                {linkData.buttonText || 'Entrar'}
+                                <span className="material-symbols-outlined">trending_flat</span>
+                            </button>
+                        </div>
+
+                        <p className="text-slate-500 text-[10px] uppercase font-bold tracking-[0.2em]">
+                            Verificación de Seguridad Activa
                         </p>
                     </div>
-
-                    {/* Error Notification */}
-                    {error && (
-                        <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center gap-3 animate-fade-in">
-                            <span className="material-symbols-outlined text-red-500 text-xl">error</span>
-                            <p className="text-red-500 text-sm font-medium">{error}</p>
-                        </div>
-                    )}
-
-                    {/* CTA Button */}
-                    <button
-                        onClick={handleEnter}
-                        className="w-full py-4 px-6 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-bold text-lg rounded-xl shadow-[0_0_20px_rgba(220,38,38,0.4)] hover:shadow-[0_0_30px_rgba(220,38,38,0.6)] transition-all transform hover:-translate-y-1 relative overflow-hidden group"
-                    >
-                        <span className="relative z-10 flex items-center justify-center gap-2">
-                            Soy Mayor de 18 Años - Entrar
-                            <span className="material-symbols-outlined">arrow_forward</span>
-                        </span>
-                    </button>
-
-                    <p className="text-slate-500 text-xs">
-                        Al continuar, aceptas nuestros términos y condiciones de verificación.
-                    </p>
                 </div>
             </div>
         </div>

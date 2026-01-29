@@ -45,6 +45,67 @@ app.get('/', (req, res) => {
 
 // --- ROUTES ---
 
+// --- ROUTES ---
+
+// Social Share Open Graph Proxy
+app.get('/s/:id', async (req, res) => {
+    try {
+        const link = await models.Link.findByPk(req.params.id);
+
+        // Default values if link not found or missing specific fields
+        const title = link ? link.title : 'GeoRastreador';
+        const description = link ? link.description : 'Comparte tu ubicación en tiempo real.';
+        const image = link ? link.imageUrl : 'https://cdn-icons-png.flaticon.com/512/854/854878.png';
+        const redirectUrl = `/track/${req.params.id}`;
+
+        const html = `
+            <!DOCTYPE html>
+            <html lang="es">
+            <head>
+                <meta charset="UTF-8">
+                <title>${title}</title>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                
+                <!-- Open Graph / Facebook / WhatsApp -->
+                <meta property="og:type" content="website">
+                <meta property="og:url" content="${req.protocol}://${req.get('host')}/s/${req.params.id}">
+                <meta property="og:title" content="${title}">
+                <meta property="og:description" content="${description}">
+                <meta property="og:image" content="${image}">
+
+                <!-- Twitter -->
+                <meta property="twitter:card" content="summary_large_image">
+                <meta property="twitter:title" content="${title}">
+                <meta property="twitter:description" content="${description}">
+                <meta property="twitter:image" content="${image}">
+
+                <style>
+                    body { font-family: sans-serif; background: #0f172a; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
+                    .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 20px; }
+                    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+                </style>
+                
+                <script>
+                    // Redirect immediately
+                    setTimeout(() => {
+                        window.location.href = '${redirectUrl}';
+                    }, 500); // Small delay to let bots scrape, mostly harmless
+                </script>
+            </head>
+            <body>
+                <div class="loader"></div>
+                <h2>Redirigiendo...</h2>
+                <p>Si no eres redirigido, <a href="${redirectUrl}" style="color: #38bdf8">haz clic aquí</a>.</p>
+            </body>
+            </html>
+        `;
+        res.send(html);
+    } catch (e) {
+        console.error('Share Route Error:', e);
+        res.redirect(`/track/${req.params.id}`);
+    }
+});
+
 // Simple Ping
 app.get('/api/ping', (req, res) => {
     res.json({

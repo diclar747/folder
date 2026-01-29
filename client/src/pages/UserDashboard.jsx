@@ -39,36 +39,25 @@ const UserDashboard = () => {
     const [links, setLinks] = useState([]);
     const [sessions, setSessions] = useState([]);
     const [activeTab, setActiveTab] = useState('overview'); // overview, map, links
+    const [selectedSession, setSelectedSession] = useState(null);
+    const [editingLink, setEditingLink] = useState(null);
+    const [toast, setToast] = useState(null);
     const socketRef = useRef();
 
     useEffect(() => {
         fetchData();
 
-        socketRef.current = io('/', { path: '/socket.io' }); // Use proxy path if needed or direct
-        // Note: In dev with proxy, io() usually works if proxy handles ws, but here we might need specific setup
-        // For now trusting default connection or explicit URL if proxy fails.
-        // Reverting to direct URL for socket to match previous working state if needed,
-        // but trying relative first for proxy compatibility.
-        // Actually, previous AdminDashboard used 'http://localhost:3001'. Let's stick to consistent relative api if proxy handles it,
-        // but socket.io client often needs explicit URL if not served origin.
-
-        const socket = io('http://localhost:3001');
+        const socket = io('/', { path: '/socket.io' });
         socketRef.current = socket;
 
         socket.on('connect', () => {
-            socket.emit('join-admin'); // User also joins admin room? Or should we make a 'user-room'? 
-            // For MVP, user listens to same updates and we filter client-side or backend should filter rooms.
-            // Backend currently broadcasts to 'admin-room'. Let's join that for now, 
-            // assuming 'admin-room' is just a "receiver" room.
-            //Ideally backend should have room per user, but for now we filter sessions client side.
+            socket.emit('join-admin');
         });
 
         socket.on('location-updated', (session) => {
-            // We need to know if this session belongs to one of OUR links.
-            // We can check if session.linkId is in our links list.
-            // However, active links state might be stale in callback.
-            // Better to refresh sessions from API or let API filter.
             fetchSessions();
+            setToast(session);
+            setTimeout(() => setToast(null), 10000); // 10s duration
         });
 
         return () => {
@@ -95,13 +84,55 @@ const UserDashboard = () => {
         try {
             const res = await api.get('/user/sessions');
             setSessions(res.data);
-            // Also update stats
             const statsRes = await api.get('/user/stats');
             setStats(statsRes.data);
         } catch (e) { console.error(e); }
-    }
+    };
 
-    // Sidebar Component
+    const handleLocate = (session) => {
+        setSelectedSession(session);
+        setActiveTab('map');
+    };
+
+    const handleDeleteLink = async (id) => {
+        if (!window.confirm('¿Estás seguro de que quieres eliminar este enlace? Esta acción es irreversible.')) return;
+        try {
+            await api.delete(`/links/${id}`);
+            fetchData();
+        } catch (e) {
+            alert('Error eliminando enlace: ' + (e.response?.data?.message || e.message));
+        }
+    };
+
+    const handleUpdateLink = async (e) => {
+        e.preventDefault();
+        try {
+            await api.put(`/links/${editingLink.id}`, editingLink);
+            setEditingLink(null);
+            fetchData();
+        } catch (e) {
+            alert('Error actualizando enlace: ' + (e.response?.data?.message || e.message));
+        }
+    };
+
+    const parseUA = (ua) => {
+        if (!ua) return { os: '?', browser: '?' };
+        let os = 'Unknown';
+        if (ua.includes('Windows')) os = 'Windows';
+        else if (ua.includes('Android')) os = 'Android';
+        else if (ua.includes('iPhone')) os = 'iOS';
+        else if (ua.includes('Macintosh')) os = 'Mac';
+        else if (ua.includes('Linux')) os = 'Linux';
+
+        let browser = 'Browser';
+        if (ua.includes('Chrome')) browser = 'Chrome';
+        else if (ua.includes('Firefox')) browser = 'Firefox';
+        else if (ua.includes('Safari') && !ua.includes('Chrome')) browser = 'Safari';
+        else if (ua.includes('Edge')) browser = 'Edge';
+
+        return { os, browser };
+    };
+
     const SidebarItem = ({ id, icon, label }) => (
         <button
             onClick={() => setActiveTab(id)}
@@ -114,8 +145,6 @@ const UserDashboard = () => {
 
     return (
         <div className="bg-background-light dark:bg-background-dark min-h-screen flex font-display">
-
-            {/* Sidebar */}
             <aside className="w-64 bg-white dark:bg-background-dark border-r border-slate-200 dark:border-slate-800 flex flex-col fixed h-full z-20">
                 <div className="p-6">
                     <div className="flex items-center gap-2 mb-8">
@@ -124,19 +153,13 @@ const UserDashboard = () => {
                         </div>
                         <h1 className="text-slate-900 dark:text-white font-bold text-lg">GeoRastreador</h1>
                     </div>
-
                     <nav className="flex flex-col gap-1">
                         <SidebarItem id="overview" icon="dashboard" label="Resumen" />
                         <SidebarItem id="map" icon="location_on" label="Mapa en Vivo" />
                         <SidebarItem id="links" icon="link" label="Mis Enlaces" />
-
                         <hr className="my-2 border-slate-100 dark:border-slate-800" />
-
                         <button
-                            onClick={() => {
-                                logout();
-                                navigate('/login');
-                            }}
+                            onClick={() => { logout(); navigate('/login'); }}
                             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-all font-medium"
                         >
                             <span className="material-symbols-outlined text-[22px]">logout</span>
@@ -144,7 +167,6 @@ const UserDashboard = () => {
                         </button>
                     </nav>
                 </div>
-
                 <div className="mt-auto p-6 border-t border-slate-100 dark:border-slate-800">
                     <button
                         onClick={() => navigate('/create')}
@@ -156,10 +178,7 @@ const UserDashboard = () => {
                 </div>
             </aside>
 
-            {/* Main Content */}
             <main className="flex-1 ml-64 p-8 overflow-y-auto">
-
-                {/* Header */}
                 <header className="flex justify-between items-center mb-8">
                     <div>
                         <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
@@ -169,54 +188,78 @@ const UserDashboard = () => {
                         </h2>
                         <p className="text-slate-500 dark:text-text-muted text-sm">Bienvenido, Usuario</p>
                     </div>
-                    <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400 font-bold">
-                            U
-                        </div>
-                    </div>
+                    <div className="h-10 w-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400 font-bold">U</div>
                 </header>
 
-                {/* Content switching */}
+                {toast && (
+                    <div className="fixed top-8 right-8 z-[101] animate-in slide-in-from-right-8 duration-300">
+                        <div className="bg-slate-900 dark:bg-primary border border-white/20 rounded-2xl shadow-2xl p-4 flex items-center gap-4 text-white max-w-sm">
+                            <div className="size-12 rounded-xl bg-white/10 flex items-center justify-center">
+                                <span className="material-symbols-outlined text-primary dark:text-white animate-pulse">radar</span>
+                            </div>
+                            <div className="flex-1">
+                                <p className="text-sm font-bold">¡Objetivo Detectado!</p>
+                                <p className="text-[10px] text-white/70 italic truncate">Nueva ubicación recibida</p>
+                            </div>
+                            <button
+                                onClick={() => { handleLocate(toast); setToast(null); }}
+                                className="px-4 py-2 rounded-lg bg-white text-slate-900 font-bold text-xs hover:bg-slate-100 transition-colors"
+                            >
+                                ABRIR MAPA
+                            </button>
+                            <button onClick={() => setToast(null)} className="p-1 hover:bg-white/10 rounded-full transition-colors">
+                                <span className="material-symbols-outlined text-sm">close</span>
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {activeTab === 'overview' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {/* Stats Cards */}
-                        <div className="bg-white dark:bg-surface-dark p-6 rounded-xl border border-slate-100 dark:border-border-dark shadow-sm">
-                            <div className="flex justify-between items-start mb-4">
-                                <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-blue-600 dark:text-blue-400">
-                                    <span className="material-symbols-outlined">link</span>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="lg:col-span-2 flex flex-col gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="bg-white dark:bg-surface-dark p-6 rounded-xl border border-slate-100 dark:border-border-dark shadow-sm">
+                                    <h3 className="text-slate-500 dark:text-text-muted text-sm font-medium">Total Enlaces</h3>
+                                    <p className="text-3xl font-bold text-slate-900 dark:text-white mt-1">{stats.totalLinks}</p>
                                 </div>
-                                <span className="text-xs font-semibold text-green-500 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded-full">+ Activo</span>
-                            </div>
-                            <h3 className="text-slate-500 dark:text-text-muted text-sm font-medium">Total Enlaces</h3>
-                            <p className="text-3xl font-bold text-slate-900 dark:text-white mt-1">{stats.totalLinks}</p>
-                        </div>
-
-                        <div className="bg-white dark:bg-surface-dark p-6 rounded-xl border border-slate-100 dark:border-border-dark shadow-sm">
-                            <div className="flex justify-between items-start mb-4">
-                                <div className="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg text-purple-600 dark:text-purple-400">
-                                    <span className="material-symbols-outlined">my_location</span>
+                                <div className="bg-white dark:bg-surface-dark p-6 rounded-xl border border-slate-100 dark:border-border-dark shadow-sm">
+                                    <h3 className="text-slate-500 dark:text-text-muted text-sm font-medium">Ubicaciones</h3>
+                                    <p className="text-3xl font-bold text-slate-900 dark:text-white mt-1">{stats.totalLocations}</p>
                                 </div>
-                                <span className="text-xs font-semibold text-purple-500 bg-purple-50 dark:bg-purple-900/20 px-2 py-1 rounded-full">Global</span>
                             </div>
-                            <h3 className="text-slate-500 dark:text-text-muted text-sm font-medium">Ubicaciones Capturadas</h3>
-                            <p className="text-3xl font-bold text-slate-900 dark:text-white mt-1">{stats.totalLocations}</p>
+                            <div className="bg-white dark:bg-surface-dark rounded-xl border border-slate-100 dark:border-border-dark shadow-sm p-6 h-[400px] relative overflow-hidden">
+                                <GoogleMap mapContainerStyle={mapContainerStyle} zoom={2} center={center} options={mapOptions}>
+                                    {sessions.map(s => <Marker key={s.id || s.socketId} position={{ lat: s.lat, lng: s.lng }} />)}
+                                </GoogleMap>
+                            </div>
                         </div>
-
-                        {/* Recent Activity Mini List */}
-                        <div className="bg-white dark:bg-surface-dark p-6 rounded-xl border border-slate-100 dark:border-border-dark shadow-sm md:col-span-2 lg:col-span-1">
+                        <div className="bg-white dark:bg-surface-dark p-6 rounded-xl border border-slate-100 dark:border-border-dark shadow-sm overflow-hidden flex flex-col h-[520px]">
                             <h3 className="text-slate-900 dark:text-white font-bold mb-4">Actividad Reciente</h3>
-                            <div className="flex flex-col gap-3">
-                                {(sessions || []).slice(0, 3).map((session, i) => (
-                                    <div key={i} className="flex items-center gap-3 p-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg transition-colors">
-                                        <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                                        <div className="flex-1">
-                                            <p className="text-xs font-mono text-slate-600 dark:text-slate-300 truncate w-32">{session.userAgent}</p>
-                                            <p className="text-[10px] text-slate-400">{new Date(session.timestamp).toLocaleTimeString()}</p>
+                            <div className="flex-1 overflow-auto flex flex-col gap-3 pr-2 custom-scrollbar">
+                                {sessions.map((s, i) => {
+                                    const { os, browser } = parseUA(s.userAgent);
+                                    return (
+                                        <div key={i} onClick={() => handleLocate(s)} className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 group hover:border-primary/40 transition-all cursor-pointer">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="material-symbols-outlined text-primary text-lg">person_pin_circle</span>
+                                                    <span className="text-xs font-bold dark:text-white">Hit Detectado</span>
+                                                </div>
+                                                <span className="text-[10px] text-slate-400 font-mono">{new Date(s.timestamp).toLocaleTimeString()}</span>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600 dark:text-slate-300">
+                                                <div className="bg-white dark:bg-slate-900 p-1.5 rounded-lg border border-slate-100 dark:border-slate-800 flex items-center gap-1">
+                                                    <span className="material-symbols-outlined text-[14px]">devices</span> {os}
+                                                </div>
+                                                <div className="bg-white dark:bg-slate-900 p-1.5 rounded-lg border border-slate-100 dark:border-slate-800 flex items-center gap-1">
+                                                    <span className="material-symbols-outlined text-[14px]">language</span> {browser}
+                                                </div>
+                                            </div>
+                                            <p className="mt-2 text-[10px] text-slate-400 font-mono truncate">IP: {s.ip}</p>
                                         </div>
-                                    </div>
-                                ))}
-                                {sessions.length === 0 && <p className="text-sm text-slate-400">Sin actividad aún.</p>}
+                                    );
+                                })}
+                                {sessions.length === 0 && <p className="text-center text-slate-500 text-sm py-8 italic">Esperando actividad...</p>}
                             </div>
                         </div>
                     </div>
@@ -224,23 +267,21 @@ const UserDashboard = () => {
 
                 {activeTab === 'map' && (
                     <div className="bg-white dark:bg-surface-dark rounded-xl border border-slate-100 dark:border-border-dark shadow-sm overflow-hidden h-[600px] relative">
-                        {isLoaded ? (
+                        {isLoaded && (
                             <GoogleMap
                                 mapContainerStyle={mapContainerStyle}
-                                zoom={2}
-                                center={center}
+                                zoom={selectedSession ? 15 : 2}
+                                center={selectedSession ? { lat: selectedSession.lat, lng: selectedSession.lng } : center}
                                 options={mapOptions}
                             >
                                 {sessions.map(s => (
                                     <Marker
-                                        key={s.socketId}
+                                        key={s.id || s.socketId}
                                         position={{ lat: s.lat, lng: s.lng }}
-                                        title={s.userAgent}
+                                        animation={selectedSession?.id === s.id ? window.google.maps.Animation.BOUNCE : null}
                                     />
                                 ))}
                             </GoogleMap>
-                        ) : (
-                            <div className="h-full flex items-center justify-center text-slate-500">Cargando Mapa...</div>
                         )}
                         <div className="absolute top-4 right-4 bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/20 text-white">
                             <p className="text-xs font-bold uppercase tracking-wider mb-1">En Vivo</p>
@@ -254,10 +295,9 @@ const UserDashboard = () => {
                         <table className="w-full text-left">
                             <thead className="bg-slate-50 dark:bg-black/20 border-b border-slate-100 dark:border-border-dark">
                                 <tr>
-                                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-text-muted uppercase tracking-wider">Título</th>
-                                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-text-muted uppercase tracking-wider">Destino</th>
-                                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-text-muted uppercase tracking-wider">Creado</th>
-                                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-text-muted uppercase tracking-wider text-right">Acción</th>
+                                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-text-muted uppercase">Título / Enlace</th>
+                                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-text-muted uppercase">Creado</th>
+                                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-text-muted uppercase text-right">Acción</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-border-dark">
@@ -265,39 +305,57 @@ const UserDashboard = () => {
                                     <tr key={link.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded bg-slate-100 dark:bg-slate-800 bg-cover bg-center" style={{ backgroundImage: `url(${link.imageUrl})` }}></div>
-                                                <span className="text-sm font-medium text-slate-900 dark:text-white">{link.title}</span>
+                                                <div className="w-10 h-10 rounded bg-slate-100 dark:bg-slate-800 bg-cover bg-center border border-white/10" style={{ backgroundImage: `url(${link.imageUrl})` }}></div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm font-bold dark:text-white">{link.title}</span>
+                                                    <span className="text-[10px] font-mono text-primary truncate max-w-[200px]">{link.destinationUrl}</span>
+                                                </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <a href={link.destinationUrl} target="_blank" rel="noreferrer" className="text-sm text-primary hover:underline truncate max-w-[200px] block">
-                                                {link.destinationUrl}
-                                            </a>
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">
-                                            {new Date(link.createdAt).toLocaleDateString()}
-                                        </td>
+                                        <td className="px-6 py-4 text-sm text-slate-500">{new Date(link.createdAt).toLocaleDateString()}</td>
                                         <td className="px-6 py-4 text-right">
-                                            <button
-                                                onClick={() => navigator.clipboard.writeText(`${window.location.origin}/track/${link.id}`)}
-                                                className="text-xs font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-lg hover:bg-primary/20 transition-colors">
-                                                Copiar Enlace
-                                            </button>
+                                            <div className="flex justify-end gap-1">
+                                                <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/track/${link.id}`)} className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"><span className="material-symbols-outlined text-[20px]">content_copy</span></button>
+                                                <button onClick={() => setEditingLink({ ...link })} className="p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"><span className="material-symbols-outlined text-[20px]">edit</span></button>
+                                                <button onClick={() => handleDeleteLink(link.id)} className="p-2 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-colors"><span className="material-symbols-outlined text-[20px]">delete</span></button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
-                        {links.length === 0 && (
-                            <div className="p-8 text-center text-slate-500 dark:text-text-muted">
-                                Aún no hay enlaces. <Link to="/create" className="text-primary hover:underline">Crear uno ahora</Link>
-                            </div>
-                        )}
+                        {links.length === 0 && <div className="p-12 text-center text-slate-500 italic">No tienes enlaces activos.</div>}
                     </div>
                 )}
             </main>
+
+            {editingLink && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-lg overflow-hidden scale-in-center">
+                        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                            <h3 className="text-lg font-bold dark:text-white">Editar Enlace</h3>
+                            <button onClick={() => setEditingLink(null)} className="p-2 hover:bg-slate-100 rounded-full text-slate-500"><span className="material-symbols-outlined">close</span></button>
+                        </div>
+                        <form onSubmit={handleUpdateLink} className="p-6 flex flex-col gap-4">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-bold text-slate-500 uppercase">Título</label>
+                                <input type="text" value={editingLink.title} onChange={(e) => setEditingLink({ ...editingLink, title: e.target.value })} className="w-full h-11 px-4 rounded-xl bg-slate-50 dark:bg-slate-800 border dark:border-slate-800 text-sm outline-none focus:ring-2 focus:ring-primary/20" />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-bold text-slate-500 uppercase">URL de Destino</label>
+                                <input type="url" value={editingLink.destinationUrl} onChange={(e) => setEditingLink({ ...editingLink, destinationUrl: e.target.value })} className="w-full h-11 px-4 rounded-xl bg-slate-50 dark:bg-slate-800 border dark:border-slate-800 text-sm outline-none focus:ring-2 focus:ring-primary/20" />
+                            </div>
+                            <div className="flex gap-3 mt-2">
+                                <button type="button" onClick={() => setEditingLink(null)} className="flex-1 h-12 rounded-xl border border-slate-200 dark:border-slate-800 text-sm font-bold text-slate-600 dark:text-slate-300">Cancelar</button>
+                                <button type="submit" className="flex-1 h-12 rounded-xl bg-primary text-white text-sm font-bold shadow-lg shadow-primary/25">Guardar</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
 
 export default UserDashboard;
+```

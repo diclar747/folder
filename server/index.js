@@ -173,11 +173,53 @@ app.get('/api/admin/links', authenticateToken, async (req, res) => {
 // Get User Links
 app.get('/api/user/links', authenticateToken, async (req, res) => {
     try {
-        const links = await Link.findAll({ where: { createdBy: req.user.id } });
+        const links = await Link.findAll({
+            where: { createdBy: req.user.id },
+            order: [['createdAt', 'DESC']]
+        });
         res.json(links);
     } catch (error) {
         console.error('Error en /api/user/links:', error);
         res.status(500).json({ message: 'Error: ' + error.message });
+    }
+});
+
+// Update Link
+app.put('/api/links/:id', authenticateToken, async (req, res) => {
+    const { title, description, imageUrl, destinationUrl, buttonText } = req.body;
+    try {
+        const link = await Link.findByPk(req.params.id);
+        if (!link) return res.status(404).json({ message: 'Enlace no encontrado' });
+
+        // Only owner or admin can edit
+        if (link.createdBy !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'No tienes permiso para editar este enlace' });
+        }
+
+        await link.update({ title, description, imageUrl, destinationUrl, buttonText });
+        res.json(link);
+    } catch (error) {
+        console.error('Error actualizando enlace:', error);
+        res.status(500).json({ message: 'Error actualizando enlace: ' + error.message });
+    }
+});
+
+// Delete Link
+app.delete('/api/links/:id', authenticateToken, async (req, res) => {
+    try {
+        const link = await Link.findByPk(req.params.id);
+        if (!link) return res.status(404).json({ message: 'Enlace no encontrado' });
+
+        // Only owner or admin can delete
+        if (link.createdBy !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'No tienes permiso para eliminar este enlace' });
+        }
+
+        await link.destroy();
+        res.json({ message: 'Enlace eliminado correctamente' });
+    } catch (error) {
+        console.error('Error eliminando enlace:', error);
+        res.status(500).json({ message: 'Error eliminando enlace: ' + error.message });
     }
 });
 

@@ -11,7 +11,7 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 // Models
-let sequelize, User, Link, Session;
+let sequelize, User, Link, Session, initError;
 try {
     const models = require('./models');
     sequelize = models.sequelize;
@@ -20,8 +20,7 @@ try {
     Session = models.Session;
 } catch (e) {
     console.error('CRITICAL: Failed to load models/DB:', e);
-    // Export error for debugging if needed
-    module.exports.initError = e;
+    initError = e;
 }
 
 const app = express();
@@ -112,12 +111,26 @@ app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
     console.log(`Login attempt for: ${email}`);
     try {
+        // Test DB connection on each login attempt for debugging
+        if (sequelize) {
+            try {
+                await sequelize.authenticate();
+            } catch (authErr) {
+                console.error('Auth error inside login route:', authErr);
+                return res.status(500).json({
+                    message: 'Error de conexión a la base de datos',
+                    details: authErr.message,
+                    code: authErr.name
+                });
+            }
+        }
+
         if (!User) {
-            const initError = require('./index').initError;
             console.error('ERROR: User model is undefined. Init Error:', initError);
             return res.status(500).json({
                 message: 'Error de configuración: Modelo User no cargado',
-                details: initError ? initError.message : 'Unknown initialization error'
+                details: initError ? initError.message : 'Unknown initialization error',
+                hint: 'Verifica la DATABASE_URL en Vercel'
             });
         }
 

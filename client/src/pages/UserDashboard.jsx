@@ -36,11 +36,12 @@ const UserDashboard = () => {
     const navigate = useNavigate();
 
     const { isLoaded, loadError } = useLoadScript({
-        googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyA4qMbpLlGXpc3EOTqelCXEdmCQBYnJh9g',
+        googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyC2p7BO6eOuToNeQSQ7L6V6cqtFpNhvapQ',
         libraries,
     });
 
     const [stats, setStats] = useState({ totalLinks: 0, totalLocations: 0 });
+    const [myLocation, setMyLocation] = useState(null);
     const [links, setLinks] = useState([]);
     const [sessions, setSessions] = useState([]);
     const [activeTab, setActiveTab] = useState('overview'); // overview, map, links
@@ -51,6 +52,20 @@ const UserDashboard = () => {
 
     useEffect(() => {
         fetchData();
+
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    setMyLocation({
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    });
+                },
+                (error) => {
+                    console.error("Error obtaining location", error);
+                }
+            );
+        }
 
         const socket = io('/', { path: '/socket.io' });
         socketRef.current = socket;
@@ -288,15 +303,36 @@ const UserDashboard = () => {
                         {isLoaded && (
                             <GoogleMap
                                 mapContainerStyle={mapContainerStyle}
-                                zoom={selectedSession ? 15 : 2}
-                                center={selectedSession ? { lat: selectedSession.lat, lng: selectedSession.lng } : center}
+                                zoom={selectedSession ? 15 : (myLocation ? 12 : 2)}
+                                center={selectedSession ? { lat: selectedSession.lat, lng: selectedSession.lng } : (myLocation || center)}
                                 options={mapOptions}
                             >
+                                {/* Admin/User Device Location */}
+                                {myLocation && (
+                                    <Marker
+                                        position={myLocation}
+                                        icon={{
+                                            path: window.google?.maps?.SymbolPath?.CIRCLE,
+                                            scale: 10,
+                                            fillColor: '#3B82F6', // Blue-500
+                                            fillOpacity: 1,
+                                            strokeColor: '#ffffff',
+                                            strokeWeight: 2,
+                                        }}
+                                        title="Tu Ubicación"
+                                    />
+                                )}
+
+                                {/* Target Sessions */}
                                 {sessions.map(s => (
                                     <Marker
                                         key={s.id || s.socketId}
                                         position={{ lat: s.lat, lng: s.lng }}
                                         animation={selectedSession?.id === s.id && window.google?.maps ? window.google.maps.Animation.BOUNCE : null}
+                                        icon={{
+                                            url: "http://maps.google.com/mapfiles/ms/icons/red-dot.png"
+                                        }}
+                                        title={`IP: ${s.ip} - ${s.userAgent}`}
                                     />
                                 ))}
                             </GoogleMap>
@@ -333,6 +369,9 @@ const UserDashboard = () => {
                                         <td className="px-6 py-4 text-sm text-slate-500">{new Date(link.createdAt).toLocaleDateString()}</td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-1">
+                                                <button onClick={() => setActiveTab('map')} className="p-2 text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/10 rounded-lg transition-colors" title="Ver en Mapa">
+                                                    <span className="material-symbols-outlined text-[20px]">map</span>
+                                                </button>
                                                 <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/track/${link.id}`)} className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"><span className="material-symbols-outlined text-[20px]">content_copy</span></button>
                                                 <button onClick={() => setEditingLink({ ...link })} className="p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"><span className="material-symbols-outlined text-[20px]">edit</span></button>
                                                 <button onClick={() => handleDeleteLink(link.id)} className="p-2 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-colors"><span className="material-symbols-outlined text-[20px]">delete</span></button>

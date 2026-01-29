@@ -23,7 +23,16 @@ const Login = () => {
             }
         } catch (err) {
             console.error('Full login error:', err);
-            const errorMessage = err.response?.data?.message || err.message || 'Error de conexión.';
+            let errorMessage = err.response?.data?.message || err.message || 'Error de conexión.';
+            if (err.response?.data?.details) {
+                errorMessage += ` (Detalles: ${err.response.data.details})`;
+            }
+            if (err.response?.data?.error) {
+                errorMessage += ` (Error: ${err.response.data.error})`;
+            }
+            if (err.response?.data?.hint) {
+                errorMessage += `\nSugerencia: ${err.response.data.hint}`;
+            }
             setError(errorMessage);
         }
     };

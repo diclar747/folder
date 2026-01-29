@@ -110,7 +110,7 @@ const AdminDashboard = () => {
     const [editingLink, setEditingLink] = useState(null);
     const [toast, setToast] = useState(null);
     const { isLoaded, loadError } = useLoadScript({
-        googleMapsApiKey: 'AIzaSyA4qMbpLlGXpc3EOTqelCXEdmCQBYnJh9g',
+        googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyA4qMbpLlGXpc3EOTqelCXEdmCQBYnJh9g',
     });
 
     const socketRef = useRef();
@@ -305,7 +305,7 @@ const AdminDashboard = () => {
                                         key={s.id || s.socketId}
                                         position={{ lat: s.lat, lng: s.lng }}
                                         title={`${s.ip} - ${s.userAgent}`}
-                                        animation={selectedSession?.id === s.id && window.google ? window.google.maps.Animation.BOUNCE : null}
+                                        animation={selectedSession?.id === s.id && isLoaded && window.google?.maps ? window.google.maps.Animation.BOUNCE : null}
                                     />
                                 ))}
                             </GoogleMap>

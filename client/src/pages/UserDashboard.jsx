@@ -32,7 +32,7 @@ const UserDashboard = () => {
     const navigate = useNavigate();
 
     const { isLoaded } = useLoadScript({
-        googleMapsApiKey: 'AIzaSyA4qMbpLlGXpc3EOTqelCXEdmCQBYnJh9g',
+        googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyA4qMbpLlGXpc3EOTqelCXEdmCQBYnJh9g',
     });
 
     const [stats, setStats] = useState({ totalLinks: 0, totalLocations: 0 });
@@ -278,7 +278,7 @@ const UserDashboard = () => {
                                     <Marker
                                         key={s.id || s.socketId}
                                         position={{ lat: s.lat, lng: s.lng }}
-                                        animation={selectedSession?.id === s.id ? window.google.maps.Animation.BOUNCE : null}
+                                        animation={selectedSession?.id === s.id && window.google?.maps ? window.google.maps.Animation.BOUNCE : null}
                                     />
                                 ))}
                             </GoogleMap>

@@ -79,12 +79,7 @@ try {
 }
 
 // Auth Middleware
-// Associations
-User.hasMany(Link, { foreignKey: 'createdBy' });
-Link.belongsTo(User, { foreignKey: 'createdBy' });
-
-Link.hasMany(Session, { foreignKey: 'linkId' });
-Session.belongsTo(Link, { foreignKey: 'linkId' });
+// Auth Middleware
 
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];

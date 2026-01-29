@@ -111,24 +111,31 @@ app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
     try {
         if (!User) {
-            throw new Error('Database models not loaded. Check server logs.');
+            console.error('ERROR: User model is undefined');
+            return res.status(500).json({ message: 'Error de configuración: Modelo User no cargado' });
         }
 
         const user = await User.findOne({ where: { email } });
         if (user && user.password === password) {
-            if (!user.isActive) return res.status(403).json({ message: 'Cuenta desactivada' });
+            if (!user.isActive) {
+                console.log(`Login blocked: User ${email} is inactive`);
+                return res.status(403).json({ message: 'Cuenta desactivada' });
+            }
 
             const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, SECRET_KEY, { expiresIn: '24h' });
+            console.log(`Login successful: ${email} (${user.role})`);
             res.json({ token, role: user.role });
         } else {
-            console.log(`Login failed for ${email}`);
-            res.status(401).json({
-                message: `Credenciales inválidas (Debug: User=${!!user})`
-            });
+            console.log(`Login failed: Invalid credentials for ${email}`);
+            res.status(401).json({ message: 'Email o contraseña incorrectos' });
         }
     } catch (error) {
-        console.error('Login error:', error);
-        res.status(500).json({ message: 'Error interno: ' + error.message });
+        console.error('CRITICAL LOGIN ERROR:', error);
+        res.status(500).json({
+            message: 'Error en el servidor',
+            details: error.message,
+            code: error.name // Capture SequelizeDatabaseError, etc.
+        });
     }
 });
 

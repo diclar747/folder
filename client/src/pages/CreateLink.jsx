@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import api from '../services/api';
+import { useNavigate } from 'react-router-dom';
 
 const CreateLink = () => {
+    const navigate = useNavigate();
     const [formData, setFormData] = useState({
         destinationUrl: '',
         title: '',
@@ -41,27 +43,27 @@ const CreateLink = () => {
                         <p className="text-gray-500 dark:text-text-muted text-xs font-normal">Suite de Pruebas de Seguridad</p>
                     </div>
                     <nav className="flex flex-col gap-2">
-                        <a href="#" className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-text-muted hover:bg-gray-100 dark:hover:bg-surface-dark transition-all">
+                        <button onClick={() => navigate('/admin')} className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-text-muted hover:bg-gray-100 dark:hover:bg-surface-dark transition-all w-full text-left">
                             <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>dashboard</span>
                             <p className="text-sm font-medium">Panel</p>
-                        </a>
-                        <a href="#" className="flex items-center gap-3 px-3 py-2 rounded-lg bg-primary/10 text-primary border border-primary/20">
+                        </button>
+                        <button className="flex items-center gap-3 px-3 py-2 rounded-lg bg-primary/10 text-primary border border-primary/20 w-full text-left">
                             <span className="material-symbols-outlined">add_link</span>
                             <p className="text-sm font-bold">Crear Enlace</p>
-                        </a>
-                        <a href="#" className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-text-muted hover:bg-gray-100 dark:hover:bg-surface-dark transition-all">
+                        </button>
+                        <button onClick={() => navigate('/admin')} className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-text-muted hover:bg-gray-100 dark:hover:bg-surface-dark transition-all w-full text-left">
                             <span className="material-symbols-outlined">link</span>
                             <p className="text-sm font-medium">Mis Enlaces</p>
-                        </a>
-                        <a href="#" className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-text-muted hover:bg-gray-100 dark:hover:bg-surface-dark transition-all">
+                        </button>
+                        <button onClick={() => navigate('/admin')} className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-text-muted hover:bg-gray-100 dark:hover:bg-surface-dark transition-all w-full text-left">
                             <span className="material-symbols-outlined">analytics</span>
                             <p className="text-sm font-medium">Analíticas</p>
-                        </a>
+                        </button>
                         <div className="mt-4 pt-4 border-t border-gray-200 dark:border-border-dark">
-                            <a href="#" className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-text-muted hover:bg-gray-100 dark:hover:bg-surface-dark transition-all">
+                            <button onClick={() => navigate('/admin')} className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-text-muted hover:bg-gray-100 dark:hover:bg-surface-dark transition-all w-full text-left">
                                 <span className="material-symbols-outlined">settings</span>
                                 <p className="text-sm font-medium">Configuración</p>
-                            </a>
+                            </button>
                         </div>
                     </nav>
                 </div>

@@ -49,6 +49,7 @@ const UserDashboard = () => {
     const [selectedSession, setSelectedSession] = useState(null);
     const [editingLink, setEditingLink] = useState(null);
     const [toast, setToast] = useState(null);
+    const [deleteId, setDeleteId] = useState(null);
     const socketRef = useRef();
 
     useEffect(() => {
@@ -132,10 +133,15 @@ const UserDashboard = () => {
         setActiveTab('map');
     };
 
-    const handleDeleteLink = async (id) => {
-        if (!window.confirm('¿Estás seguro de que quieres eliminar este enlace? Esta acción es irreversible.')) return;
+    const handleDeleteLink = (id) => {
+        setDeleteId(id);
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteId) return;
         try {
-            await api.delete(`/links/${id}`);
+            await api.delete(`/links/${deleteId}`);
+            setDeleteId(null);
             fetchData();
         } catch (e) {
             alert('Error eliminando enlace: ' + (e.response?.data?.message || e.message));
@@ -455,6 +461,37 @@ const UserDashboard = () => {
                                 <button type="submit" className="flex-1 h-12 rounded-xl bg-primary text-white text-sm font-bold shadow-lg shadow-primary/25">Guardar</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Custom Delete Confirmation Modal */}
+            {deleteId && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-sm overflow-hidden scale-in-center">
+                        <div className="p-6 text-center">
+                            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/20 mb-4">
+                                <span className="material-symbols-outlined text-3xl text-red-600">delete_forever</span>
+                            </div>
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">¿Estás seguro?</h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+                                ¿Estás seguro de que quieres eliminar este enlace? Esta acción es irreversible.
+                            </p>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setDeleteId(null)}
+                                    className="flex-1 h-11 rounded-xl border border-slate-200 dark:border-slate-800 text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={confirmDelete}
+                                    className="flex-1 h-11 rounded-xl bg-red-600 text-white text-sm font-bold shadow-lg shadow-red-600/20 hover:bg-red-700 transition-colors"
+                                >
+                                    Eliminar
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

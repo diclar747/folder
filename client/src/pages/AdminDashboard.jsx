@@ -2,6 +2,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import { GoogleMap, useLoadScript, Marker } from '@react-google-maps/api';
 import { io } from 'socket.io-client';
 import api from '../services/api';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 const mapContainerStyle = {
     width: '100%',
@@ -98,39 +100,39 @@ const mapOptions = {
 };
 
 const AdminDashboard = () => {
+    const navigate = useNavigate();
+    const { logout } = useAuth();
+    const [stats, setStats] = useState({ totalLinks: 0, totalLocations: 0 });
+    const [links, setLinks] = useState([]);
+    const [sessions, setSessions] = useState([]);
+    const [activeTab, setActiveTab] = useState('dashboard');
     const { isLoaded, loadError } = useLoadScript({
         googleMapsApiKey: 'AIzaSyA4qMbpLlGXpc3EOTqelCXEdmCQBYnJh9g',
     });
 
-    const [sessions, setSessions] = useState([]);
-    const [activeTab, setActiveTab] = useState('dashboard');
     const socketRef = useRef();
 
     useEffect(() => {
-        api.get('/admin/sessions')
-            .then(res => setSessions(res.data))
-            .catch(err => console.error(err));
-
-        socketRef.current = io('http://localhost:3001');
-        socketRef.current.emit('join-admin');
-        socketRef.current.on('location-updated', (session) => {
-            setSessions(prev => {
-                const idx = prev.findIndex(s => s.socketId === session.socketId);
-                if (idx >= 0) {
-                    const newSessions = [...prev];
-                    newSessions[idx] = session;
-                    return newSessions;
-                }
-                return [...prev, session];
-            });
+        fetchAdminData();
+        const socket = io('http://localhost:3001');
+        socketRef.current = socket;
+        socket.on('connect', () => socket.emit('join-admin'));
+        socket.on('location-updated', (session) => {
+            setSessions(prev => [session, ...prev]);
         });
-        socketRef.current.on('client-disconnected', (socketId) => {
-            setSessions(prev => prev.filter(s => s.socketId !== socketId));
-        });
-        return () => {
-            if (socketRef.current) socketRef.current.disconnect();
-        };
+        return () => socket.disconnect();
     }, []);
+
+    const fetchAdminData = async () => {
+        try {
+            const [linksRes, sessionsRes] = await Promise.all([
+                api.get('/admin/links'),
+                api.get('/user/sessions') // Using existing route or create admin specific
+            ]);
+            setLinks(linksRes.data);
+            setSessions(sessionsRes.data);
+        } catch (e) { console.error("Error fetching admin data", e); }
+    };
 
     if (loadError) return <div>Error loading maps</div>;
     if (!isLoaded) return <div>Loading Maps...</div>;
@@ -161,7 +163,7 @@ const AdminDashboard = () => {
                                 <span className="text-sm font-semibold">Panel</span>
                             </button>
                             <button
-                                onClick={() => window.location.href = '/create'}
+                                onClick={() => navigate('/create')}
                                 className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                             >
                                 <span className="material-symbols-outlined text-[22px]">add_link</span>
@@ -190,6 +192,19 @@ const AdminDashboard = () => {
                             >
                                 <span className="material-symbols-outlined text-[22px]">settings</span>
                                 <span className="text-sm font-medium">Configuración</span>
+                            </button>
+
+                            <hr className="my-2 border-slate-100 dark:border-slate-800" />
+
+                            <button
+                                onClick={() => {
+                                    logout();
+                                    navigate('/login');
+                                }}
+                                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-all font-medium"
+                            >
+                                <span className="material-symbols-outlined text-[22px]">logout</span>
+                                <span className="text-sm">Cerrar Sesión</span>
                             </button>
                         </nav>
                     </div>
@@ -314,9 +329,58 @@ const AdminDashboard = () => {
 
                 {activeTab === 'links' && (
                     <div className="p-8">
-                        <h2 className="text-2xl font-bold text-white mb-4">Gestión de Enlaces</h2>
-                        <div className="bg-white/5 rounded-xl border border-white/10 p-8 text-center text-slate-400">
-                            Próximamente: Lista detallada de todos los enlaces generados.
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-2xl font-bold text-white">Gestión Global de Enlaces</h2>
+                            <button onClick={() => navigate('/create')} className="btn-primary px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
+                                <span className="material-symbols-outlined text-sm">add</span>
+                                Nuevo Enlace
+                            </button>
+                        </div>
+                        <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden shadow-2xl">
+                            <table className="w-full text-left">
+                                <thead className="bg-white/5 border-b border-white/5">
+                                    <tr>
+                                        <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase">Enlace / Título</th>
+                                        <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase">Creador</th>
+                                        <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase">Destino</th>
+                                        <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase text-right">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5 font-display">
+                                    {links.map(link => (
+                                        <tr key={link.id} className="hover:bg-white/5 transition-colors group">
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-lg bg-slate-800 bg-cover bg-center border border-white/10" style={{ backgroundImage: `url(${link.imageUrl})` }}></div>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-bold text-white">{link.title || 'Sin título'}</span>
+                                                        <span className="text-[10px] text-slate-500 font-mono">ID: {link.id}</span>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="text-sm text-slate-300">{(link.User && link.User.email) || 'Desconocido'}</span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="text-sm text-primary hover:underline truncate max-w-[150px] block cursor-pointer">{link.destinationUrl}</span>
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <button
+                                                    onClick={() => navigator.clipboard.writeText(`${window.location.origin}/track/${link.id}`)}
+                                                    className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-black border border-primary/20 hover:bg-primary/20 transition-all"
+                                                >
+                                                    COPIAR
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {links.length === 0 && (
+                                        <tr>
+                                            <td colSpan="4" className="px-8 py-12 text-center text-slate-500 italic">No se han encontrado enlaces generados.</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 )}

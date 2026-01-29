@@ -79,6 +79,13 @@ try {
 }
 
 // Auth Middleware
+// Associations
+User.hasMany(Link, { foreignKey: 'createdBy' });
+Link.belongsTo(User, { foreignKey: 'createdBy' });
+
+Link.hasMany(Session, { foreignKey: 'linkId' });
+Session.belongsTo(Link, { foreignKey: 'linkId' });
+
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -154,12 +161,12 @@ app.get('/api/links/:id', async (req, res) => {
 
 // Get All Links (Admin)
 app.get('/api/admin/links', authenticateToken, async (req, res) => {
-    if (req.user.role !== 'admin') return res.sendStatus(403);
     try {
         const links = await Link.findAll({ include: User });
         res.json(links);
     } catch (error) {
-        res.status(500).json({ message: 'Error' });
+        console.error('Error en /api/admin/links:', error);
+        res.status(500).json({ message: 'Error: ' + error.message });
     }
 });
 
@@ -169,40 +176,45 @@ app.get('/api/user/links', authenticateToken, async (req, res) => {
         const links = await Link.findAll({ where: { createdBy: req.user.id } });
         res.json(links);
     } catch (error) {
-        res.status(500).json({ message: 'Error' });
+        console.error('Error en /api/user/links:', error);
+        res.status(500).json({ message: 'Error: ' + error.message });
     }
 });
 
 // Get User Stats
 app.get('/api/user/stats', authenticateToken, async (req, res) => {
     try {
-        const links = await Link.findAll({ where: { createdBy: req.user.id } });
-        const totalLinks = links.length;
-        const linkIds = links.map(l => l.id);
-        const totalLocations = await Session.count({ where: { linkId: linkIds } });
-
-        res.json({ totalLinks, totalLocations });
+        const linksCount = await Link.count({ where: { createdBy: req.user.id } });
+        const sessionsCount = await Session.count({
+            include: [{
+                model: Link,
+                where: { createdBy: req.user.id }
+            }]
+        });
+        res.json({
+            totalLinks: linksCount,
+            totalLocations: sessionsCount
+        });
     } catch (error) {
-        console.error('Stats error:', error);
-        res.status(500).json({ message: 'Error recuperando estadísticas' });
+        console.error('Error en /api/user/stats:', error);
+        res.status(500).json({ message: 'Error: ' + error.message });
     }
 });
 
 // Get User Sessions
 app.get('/api/user/sessions', authenticateToken, async (req, res) => {
     try {
-        const links = await Link.findAll({ where: { createdBy: req.user.id }, attributes: ['id'] });
-        const linkIds = links.map(l => l.id);
-
         const sessions = await Session.findAll({
-            where: { linkId: linkIds },
-            order: [['timestamp', 'DESC']],
-            limit: 50 // Limit for performance
+            include: [{
+                model: Link,
+                where: { createdBy: req.user.id }
+            }],
+            order: [['timestamp', 'DESC']]
         });
         res.json(sessions);
     } catch (error) {
-        console.error('Sessions error:', error);
-        res.status(500).json({ message: 'Error recuperando sesiones' });
+        console.error('Error en /api/user/sessions:', error);
+        res.status(500).json({ message: 'Error: ' + error.message });
     }
 });
 

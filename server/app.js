@@ -298,6 +298,42 @@ app.delete('/api/links/:id/sessions', authenticateToken, async (req, res) => {
     }
 });
 
+// Get User Profile
+app.get('/api/user/profile', authenticateToken, async (req, res) => {
+    try {
+        const user = await models.User.findByPk(req.user.id, {
+            attributes: { exclude: ['password'] }
+        });
+        if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+        res.json(user);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// Update User Profile
+app.put('/api/user/profile', authenticateToken, async (req, res) => {
+    const { password, avatarUrl, address, city, phone } = req.body;
+    try {
+        const user = await models.User.findByPk(req.user.id);
+        if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+
+        const updates = { avatarUrl, address, city, phone };
+        if (password && password.trim() !== '') {
+            updates.password = password; // Note: In production, hash this!
+        }
+
+        await user.update(updates);
+
+        const updatedUser = user.toJSON();
+        delete updatedUser.password;
+
+        res.json(updatedUser);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 // Track Visit (HTTP)
 app.post('/api/track', async (req, res) => {
     const { linkId, lat, lng, userAgent } = req.body;

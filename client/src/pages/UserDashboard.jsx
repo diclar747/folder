@@ -6,6 +6,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Sidebar from '../components/Sidebar';
 import CreateLinkForm from '../components/CreateLinkForm';
+import UserProfile from '../components/UserProfile';
 
 const mapContainerStyle = {
     width: '100%',
@@ -52,6 +53,7 @@ const UserDashboard = () => {
     const [deleteId, setDeleteId] = useState(null);
     const [cleanId, setCleanId] = useState(null);
     const [clearAllMap, setClearAllMap] = useState(false);
+    const [showUserMenu, setShowUserMenu] = useState(false);
     const socketRef = useRef();
     const lastSessionIdRef = useRef(null);
 
@@ -286,10 +288,44 @@ const UserDashboard = () => {
                             {activeTab === 'map' && 'Monitoreo en Tiempo Real'}
                             {activeTab === 'links' && 'Gestión de Enlaces'}
                             {activeTab === 'create' && 'Nuevo Enlace de Rastreo'}
+                            {activeTab === 'profile' && 'Mi Perfil'}
                         </h2>
                         <p className="text-slate-500 dark:text-text-muted text-sm">Bienvenido, Usuario</p>
                     </div>
-                    <div className="h-10 w-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400 font-bold">U</div>
+                    <div className="h-10 w-10 relative">
+                        <div
+                            onClick={() => setShowUserMenu(!showUserMenu)}
+                            className="h-10 w-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400 font-bold cursor-pointer hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors border border-slate-300 dark:border-slate-600"
+                        >
+                            U
+                        </div>
+
+                        {/* User Dropdown Menu */}
+                        {showUserMenu && (
+                            <div className="absolute top-12 right-0 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 w-48 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                                <div className="p-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                                    <p className="text-xs font-bold text-slate-900 dark:text-white">Usuario</p>
+                                    <p className="text-[10px] text-slate-500 truncate">user@example.com</p>
+                                </div>
+                                <div className="p-1">
+                                    <button
+                                        onClick={() => { setActiveTab('profile'); setShowUserMenu(false); }}
+                                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors text-left"
+                                    >
+                                        <span className="material-symbols-outlined text-lg">person</span>
+                                        Mi Perfil
+                                    </button>
+                                    <button
+                                        onClick={() => { logout(); navigate('/login'); }}
+                                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors text-left"
+                                    >
+                                        <span className="material-symbols-outlined text-lg">logout</span>
+                                        Cerrar Sesión
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </header>
 
                 {toast && (

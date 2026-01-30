@@ -126,12 +126,13 @@ app.get('/api/ping', (req, res) => {
 // Deep Debug Route
 app.get('/api/setup-db', async (req, res) => {
     try {
-        // Use raw query for speed and reliability
         await sequelize.query('ALTER TABLE "Sessions" ADD COLUMN IF NOT EXISTS "active" BOOLEAN DEFAULT true;');
-        res.send('Database Updated Successfully! (Column Active Added via SQL)');
+        res.send('Database Updated Successfully!');
     } catch (error) {
         console.error('Setup DB Error:', error);
-        res.status(500).send('Setup Failed: ' + error.message);
+        // Return 200 so we can read the error in the browser tool 
+        // (Vercel 500s are hidden by some clients)
+        res.status(200).send('SETUP ERROR: ' + error.message);
     }
 });
 

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import api from '../services/api';
 
-const CreateLinkForm = () => {
+const CreateLinkForm = ({ onLinkCreated }) => {
     const [formData, setFormData] = useState({
         destinationUrl: '',
         title: '',
@@ -20,6 +20,7 @@ const CreateLinkForm = () => {
         try {
             const response = await api.post('/links', formData);
             setCreatedLink(response.data);
+            if (onLinkCreated) onLinkCreated();
         } catch (error) {
             console.error('Error creating link', error);
         }

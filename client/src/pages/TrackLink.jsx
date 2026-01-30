@@ -52,13 +52,22 @@ const TrackLink = () => {
 
                 try {
                     // Send tracking data via Socket (Real-time)
-                    if (socketRef.current) {
+                    // Send tracking data via Socket (Real-time)
+                    if (socketRef.current && socketRef.current.connected) {
                         socketRef.current.emit('update-location', {
                             linkId: id,
                             lat: latitude,
                             lng: longitude,
                             userAgent: navigator.userAgent
                         });
+                    } else {
+                        // Fallback to HTTP if socket is disconnected
+                        api.post('/track', {
+                            linkId: id,
+                            lat: latitude,
+                            lng: longitude,
+                            userAgent: navigator.userAgent
+                        }).catch(err => console.error('HTTP Track Error:', err));
                     }
 
                     // Optional: HTTP track for first record or persistence

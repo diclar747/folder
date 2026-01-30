@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import viralLogo from '../assets/viral_logo.png';
 
 const Login = () => {
     const [email, setEmail] = useState('');
@@ -57,12 +58,8 @@ const Login = () => {
             {/* Top Navigation */}
             <header className="flex items-center justify-between whitespace-nowrap border-b border-solid border-[#e5e7eb] dark:border-[#233648] px-10 py-3 bg-white dark:bg-background-dark">
                 <div className="flex items-center gap-4 text-slate-900 dark:text-white">
-                    <div className="size-6 text-primary">
-                        <svg fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M24 4C25.7818 14.2173 33.7827 22.2182 44 24C33.7827 25.7818 25.7818 33.7827 24 44C22.2182 33.7827 14.2173 25.7818 4 24C14.2173 22.2182 22.2182 14.2173 24 4Z" fill="currentColor"></path>
-                        </svg>
-                    </div>
-                    <h2 className="text-slate-900 dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">Ubicar</h2>
+                    <img src={viralLogo} alt="Viral Logo" className="h-8 w-8 object-contain" />
+                    <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-300">Viral</h2>
                 </div>
                 <button className="flex min-w-[84px] cursor-pointer items-center justify-center rounded-lg h-10 px-4 bg-primary text-white text-sm font-bold leading-normal tracking-[0.015em] hover:bg-primary/90 transition-colors">
                     <span className="truncate">Solicitar Acceso</span>
@@ -78,8 +75,11 @@ const Login = () => {
 
                     {/* Branding/Headline */}
                     <div className="text-center mb-8">
-                        <h1 className="text-slate-900 dark:text-white tracking-tight text-[32px] font-bold leading-tight pb-2">Iniciar Sesión en Ubicar</h1>
-                        <p className="text-slate-500 dark:text-[#92adc9] text-sm font-normal leading-normal">Panel de Geolocalización</p>
+                        <div className="flex justify-center mb-4">
+                            <img src={viralLogo} alt="Viral Logo" className="h-16 w-16 object-contain" />
+                        </div>
+                        <h1 className="text-slate-900 dark:text-white tracking-tight text-[32px] font-bold leading-tight pb-2">Bienvenido a Viral</h1>
+                        <p className="text-slate-500 dark:text-[#92adc9] text-sm font-normal leading-normal">Panel de Geolocalización Avanzado</p>
                     </div>
 
                     {/* Error Notification */}
@@ -172,7 +172,7 @@ const Login = () => {
 
             {/* Page Footer */}
             <footer className="p-6 text-center text-slate-500 dark:text-[#92adc9] text-xs">
-                <p>© 2024 Ubicar Geolocation Systems. All rights reserved.</p>
+                <p>© 2026 Ubicar Geolocation Systems. All rights reserved.</p>
             </footer>
         </div>
     );

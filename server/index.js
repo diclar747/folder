@@ -26,16 +26,30 @@ io.on('connection', (socket) => {
     socket.on('update-location', async ({ linkId, lat, lng, userAgent }) => {
         try {
             if (Session) {
+                // Try to find if we already have a session for this socket to update it
+                // instead of creating a new one every second/move
+                let session = await Session.findOne({
+                    where: { socketId: socket.id },
+                    order: [['timestamp', 'DESC']]
+                });
+
                 const sessionData = {
                     socketId: socket.id,
                     linkId,
                     lat,
                     lng,
                     userAgent,
-                    ip: socket.handshake.address
+                    ip: socket.handshake.address,
+                    timestamp: new Date()
                 };
-                const createdSession = await Session.create(sessionData);
-                io.to('admin-room').emit('location-updated', createdSession);
+
+                if (session) {
+                    await session.update(sessionData);
+                } else {
+                    session = await Session.create(sessionData);
+                }
+
+                io.to('admin-room').emit('location-updated', session);
             } else {
                 console.warn('Session model not available for socket update');
             }

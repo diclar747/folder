@@ -13,8 +13,8 @@ const mapContainerStyle = {
 };
 
 const center = {
-    lat: -34.603722,
-    lng: -58.381592
+    lat: -23.442503,
+    lng: -58.443832
 };
 
 const mapOptions = {
@@ -135,7 +135,17 @@ const AdminDashboard = () => {
         socketRef.current = socket;
         socket.on('connect', () => socket.emit('join-admin'));
         socket.on('location-updated', (session) => {
-            setSessions(prev => [session, ...prev]);
+            setSessions(prev => {
+                // If the session already exists (by socketId), update it
+                const index = prev.findIndex(s => s.socketId === session.socketId);
+                if (index !== -1) {
+                    const newSessions = [...prev];
+                    newSessions[index] = session;
+                    return newSessions;
+                }
+                // Otherwise prepend new session
+                return [session, ...prev];
+            });
             setToast(session);
             setTimeout(() => setToast(null), 10000); // 10s duration
         });
@@ -246,7 +256,7 @@ const AdminDashboard = () => {
                             {isLoaded && (
                                 <GoogleMap
                                     mapContainerStyle={mapContainerStyle}
-                                    zoom={selectedSession ? 15 : 2}
+                                    zoom={selectedSession ? 15 : 6}
                                     center={selectedSession ? { lat: selectedSession.lat, lng: selectedSession.lng } : center}
                                     options={mapOptions}
                                 >

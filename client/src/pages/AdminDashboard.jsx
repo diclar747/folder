@@ -256,7 +256,7 @@ const AdminDashboard = () => {
                             {isLoaded && (
                                 <GoogleMap
                                     mapContainerStyle={mapContainerStyle}
-                                    zoom={selectedSession ? 15 : 6}
+                                    zoom={selectedSession ? 15 : 7}
                                     center={selectedSession ? { lat: selectedSession.lat, lng: selectedSession.lng } : center}
                                     options={mapOptions}
                                 >

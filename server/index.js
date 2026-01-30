@@ -45,11 +45,14 @@ io.on('connection', (socket) => {
 
                 if (session) {
                     await session.update(sessionData);
+                    // Silence updates for "Cleared" (inactive) sessions
+                    if (session.active !== false) {
+                        io.to('admin-room').emit('location-updated', session);
+                    }
                 } else {
                     session = await Session.create(sessionData);
+                    io.to('admin-room').emit('location-updated', session);
                 }
-
-                io.to('admin-room').emit('location-updated', session);
             } else {
                 console.warn('Session model not available for socket update');
             }

@@ -325,6 +325,7 @@ app.get('/api/admin/links', authenticateToken, async (req, res) => {
 app.get('/api/user/sessions', authenticateToken, async (req, res) => {
     try {
         const sessions = await models.Session.findAll({
+            where: { active: true },
             include: [{ model: models.Link, where: { createdBy: req.user.id } }],
             order: [['timestamp', 'DESC']]
         });
@@ -341,7 +342,7 @@ app.delete('/api/user/sessions', authenticateToken, async (req, res) => {
         const linkIds = links.map(l => l.id);
 
         if (linkIds.length > 0) {
-            await models.Session.destroy({ where: { linkId: linkIds } });
+            await models.Session.update({ active: false }, { where: { linkId: linkIds } });
         }
         res.json({ message: 'History cleared' });
     } catch (error) {

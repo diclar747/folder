@@ -34,6 +34,10 @@ const Session = sequelize.define('Session', {
     ip: {
         type: DataTypes.STRING,
         allowNull: true
+    },
+    active: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: true
     }
 });
 

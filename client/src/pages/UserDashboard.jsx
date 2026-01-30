@@ -178,8 +178,11 @@ const UserDashboard = () => {
                 const latest = newSessions[0];
                 // If we have previous data AND the latest ID is different from stored
                 if (lastSessionIdRef.current && latest.id !== lastSessionIdRef.current) {
-                    setToast(latest);
-                    playNotificationSound();
+                    // Only alert if NOT paused
+                    if (!pausedLinksRef.current.has(latest.linkId)) {
+                        setToast(latest);
+                        playNotificationSound();
+                    }
                 }
                 lastSessionIdRef.current = latest.id;
             }

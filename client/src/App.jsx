@@ -8,6 +8,7 @@ import CreateLink from './pages/CreateLink';
 import TrackLink from './pages/TrackLink';
 import AdminDashboard from './pages/AdminDashboard';
 import UserDashboard from './pages/UserDashboard';
+import LandingPage from './pages/LandingPage';
 
 const PrivateRoute = ({ children, role }) => {
   const { user, loading } = useAuth();

@@ -44,7 +44,7 @@ function App() {
               </PrivateRoute>
             } />
 
-            <Route path="/" element={<Navigate to="/login" />} />
+            <Route path="/" element={<LandingPage />} />
           </Routes>
         </Router>
       </AuthProvider>

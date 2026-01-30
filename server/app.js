@@ -124,6 +124,16 @@ app.get('/api/ping', (req, res) => {
 });
 
 // Deep Debug Route
+app.get('/api/setup-db', async (req, res) => {
+    try {
+        await sequelize.sync({ alter: true });
+        res.send('Database Synced Successfully! (Hidden Column Added)');
+    } catch (error) {
+        res.status(500).send('Sync Failed: ' + error.message);
+    }
+});
+
+// Deep Debug Route
 app.get('/api/debug-env', async (req, res) => {
     const dbStatus = models && models.sequelize ? 'initialized' : 'failed/missing';
     let dbConnection = 'untested';
@@ -447,13 +457,7 @@ app.use((err, req, res, next) => {
 });
 
 // Database Sync Route (Fix for Vercel 500 Error on Schema Change)
-app.get('/api/setup-db', async (req, res) => {
-    try {
-        await sequelize.sync({ alter: true });
-        res.send('Database Synced Successfully! (Hidden Column Added)');
-    } catch (error) {
-        res.status(500).send('Sync Failed: ' + error.message);
-    }
-});
+// Database Sync Route (Fix for Vercel 500 Error on Schema Change)
+
 
 module.exports = app;

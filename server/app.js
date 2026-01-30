@@ -446,4 +446,14 @@ app.use((err, req, res, next) => {
     res.status(500).json({ error: 'Fallo catastrófico', message: err.message });
 });
 
+// Database Sync Route (Fix for Vercel 500 Error on Schema Change)
+app.get('/api/setup-db', async (req, res) => {
+    try {
+        await sequelize.sync({ alter: true });
+        res.send('Database Synced Successfully! (Hidden Column Added)');
+    } catch (error) {
+        res.status(500).send('Sync Failed: ' + error.message);
+    }
+});
+
 module.exports = app;

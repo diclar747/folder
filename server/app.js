@@ -126,12 +126,12 @@ app.get('/api/ping', (req, res) => {
 // Deep Debug Route
 app.get('/api/setup-db', async (req, res) => {
     try {
-        await sequelize.query('ALTER TABLE "Sessions" ADD COLUMN IF NOT EXISTS "active" BOOLEAN DEFAULT true;');
+        if (!models || !models.sequelize) throw new Error('Database models not initialized (Check server logs)');
+
+        await models.sequelize.query('ALTER TABLE "Sessions" ADD COLUMN IF NOT EXISTS "active" BOOLEAN DEFAULT true;');
         res.send('Database Updated Successfully!');
     } catch (error) {
         console.error('Setup DB Error:', error);
-        // Return 200 so we can read the error in the browser tool 
-        // (Vercel 500s are hidden by some clients)
         res.status(200).send('SETUP ERROR: ' + error.message);
     }
 });

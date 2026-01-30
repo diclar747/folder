@@ -250,7 +250,8 @@ const UserDashboard = () => {
 
     return (
         <div className="bg-background-light dark:bg-background-dark min-h-screen flex font-display">
-            <aside className="w-64 bg-white dark:bg-background-dark border-r border-slate-200 dark:border-slate-800 flex flex-col fixed h-full z-20">
+            {/* Desktop Sidebar */}
+            <aside className="hidden md:flex w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex-col fixed h-full z-20">
                 <div className="p-6">
                     <div className="flex items-center gap-2 mb-8">
                         <div className="bg-primary rounded-lg p-1.5 text-white">
@@ -283,7 +284,35 @@ const UserDashboard = () => {
                 </div>
             </aside>
 
-            <main className="flex-1 ml-64 p-8 overflow-y-auto">
+            {/* Mobile Bottom Navigation */}
+            <nav className="md:hidden fixed bottom-0 left-0 w-full bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex justify-around items-center p-2 pb-safe z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+                <button onClick={() => setActiveTab('overview')} className={`flex flex-col items-center p-2 rounded-lg ${activeTab === 'overview' ? 'text-primary' : 'text-slate-500 dark:text-slate-400'}`}>
+                    <span className="material-symbols-outlined" style={activeTab === 'overview' ? { fontVariationSettings: "'FILL' 1" } : {}}>dashboard</span>
+                    <span className="text-[10px] font-medium mt-0.5">Inicio</span>
+                </button>
+                <button onClick={() => setActiveTab('map')} className={`flex flex-col items-center p-2 rounded-lg ${activeTab === 'map' ? 'text-primary' : 'text-slate-500 dark:text-slate-400'}`}>
+                    <span className="material-symbols-outlined" style={activeTab === 'map' ? { fontVariationSettings: "'FILL' 1" } : {}}>location_on</span>
+                    <span className="text-[10px] font-medium mt-0.5">Mapa</span>
+                </button>
+                <div className="relative -top-5">
+                    <button
+                        onClick={() => setActiveTab('create')}
+                        className="flex items-center justify-center w-14 h-14 bg-primary text-white rounded-full shadow-lg shadow-primary/40 active:scale-95 transition-transform"
+                    >
+                        <span className="material-symbols-outlined text-2xl">add</span>
+                    </button>
+                </div>
+                <button onClick={() => setActiveTab('links')} className={`flex flex-col items-center p-2 rounded-lg ${activeTab === 'links' ? 'text-primary' : 'text-slate-500 dark:text-slate-400'}`}>
+                    <span className="material-symbols-outlined" style={activeTab === 'links' ? { fontVariationSettings: "'FILL' 1" } : {}}>link</span>
+                    <span className="text-[10px] font-medium mt-0.5">Enlaces</span>
+                </button>
+                <button onClick={() => setActiveTab('profile')} className={`flex flex-col items-center p-2 rounded-lg ${activeTab === 'profile' ? 'text-primary' : 'text-slate-500 dark:text-slate-400'}`}>
+                    <span className="material-symbols-outlined" style={activeTab === 'profile' ? { fontVariationSettings: "'FILL' 1" } : {}}>person</span>
+                    <span className="text-[10px] font-medium mt-0.5">Perfil</span>
+                </button>
+            </nav>
+
+            <main className="flex-1 ml-0 md:ml-64 p-4 md:p-8 pb-24 md:pb-8 overflow-y-auto w-full">
                 <header className="flex justify-between items-center mb-8">
                     <div>
                         <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
@@ -512,42 +541,84 @@ const UserDashboard = () => {
 
                 {activeTab === 'links' && (
                     <div className="bg-white dark:bg-surface-dark rounded-xl border border-slate-100 dark:border-border-dark shadow-sm overflow-hidden">
-                        <table className="w-full text-left">
-                            <thead className="bg-slate-50 dark:bg-black/20 border-b border-slate-100 dark:border-border-dark">
-                                <tr>
-                                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-text-muted uppercase">Título / Enlace</th>
-                                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-text-muted uppercase">Creado</th>
-                                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-text-muted uppercase text-right">Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-border-dark">
-                                {links.map(link => (
-                                    <tr key={link.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded bg-slate-100 dark:bg-slate-800 bg-cover bg-center border border-white/10" style={{ backgroundImage: `url(${link.imageUrl})` }}></div>
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm font-bold dark:text-white">{link.title}</span>
-                                                    <span className="text-[10px] font-mono text-primary truncate max-w-[200px]">{link.destinationUrl}</span>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-slate-500">{new Date(link.createdAt).toLocaleDateString()}</td>
-                                        <td className="px-6 py-4 text-right">
-                                            <div className="flex justify-end gap-1">
-                                                <button onClick={() => setActiveTab('map')} className="p-2 text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/10 rounded-lg transition-colors" title="Ver en Mapa">
-                                                    <span className="material-symbols-outlined text-[20px]">map</span>
-                                                </button>
-                                                <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/s/${link.id}`)} className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Copiar Enlace"><span className="material-symbols-outlined text-[20px]">content_copy</span></button>
-                                                <button onClick={() => handleClearLinkHistory(link.id)} className="p-2 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/10 rounded-lg transition-colors" title="Limpiar Historial"><span className="material-symbols-outlined text-[20px]">cleaning_services</span></button>
-                                                <button onClick={() => setEditingLink({ ...link })} className="p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"><span className="material-symbols-outlined text-[20px]">edit</span></button>
-                                                <button onClick={() => handleDeleteLink(link.id)} className="p-2 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-colors"><span className="material-symbols-outlined text-[20px]">delete</span></button>
-                                            </div>
-                                        </td>
+                        {/* Desktop Table View */}
+                        <div className="hidden md:block overflow-x-auto">
+                            <table className="w-full text-left">
+                                <thead className="bg-slate-50 dark:bg-black/20 border-b border-slate-100 dark:border-border-dark">
+                                    <tr>
+                                        <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-text-muted uppercase">Título / Enlace</th>
+                                        <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-text-muted uppercase">Creado</th>
+                                        <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-text-muted uppercase text-right">Acción</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-border-dark">
+                                    {links.map(link => (
+                                        <tr key={link.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded bg-slate-100 dark:bg-slate-800 bg-cover bg-center border border-white/10" style={{ backgroundImage: `url(${link.imageUrl})` }}></div>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-bold dark:text-white">{link.title}</span>
+                                                        <span className="text-[10px] font-mono text-primary truncate max-w-[200px]">{link.destinationUrl}</span>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-slate-500">{new Date(link.createdAt).toLocaleDateString()}</td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="flex justify-end gap-1">
+                                                    <button onClick={() => setActiveTab('map')} className="p-2 text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/10 rounded-lg transition-colors" title="Ver en Mapa">
+                                                        <span className="material-symbols-outlined text-[20px]">map</span>
+                                                    </button>
+                                                    <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/s/${link.id}`)} className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Copiar Enlace"><span className="material-symbols-outlined text-[20px]">content_copy</span></button>
+                                                    <button onClick={() => handleClearLinkHistory(link.id)} className="p-2 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/10 rounded-lg transition-colors" title="Limpiar Historial"><span className="material-symbols-outlined text-[20px]">cleaning_services</span></button>
+                                                    <button onClick={() => setEditingLink({ ...link })} className="p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"><span className="material-symbols-outlined text-[20px]">edit</span></button>
+                                                    <button onClick={() => handleDeleteLink(link.id)} className="p-2 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-colors"><span className="material-symbols-outlined text-[20px]">delete</span></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Mobile Card List View */}
+                        <div className="md:hidden p-4 space-y-4">
+                            {links.map(link => (
+                                <div key={link.id} className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-100 dark:border-slate-800 shadow-sm">
+                                    <div className="flex gap-4 mb-3">
+                                        <div className="w-14 h-14 rounded-lg bg-slate-200 dark:bg-slate-700 bg-cover bg-center shadow-inner" style={{ backgroundImage: `url(${link.imageUrl})` }}></div>
+                                        <div className="flex-1 min-w-0">
+                                            <h4 className="font-bold text-slate-900 dark:text-white truncate">{link.title}</h4>
+                                            <p className="text-xs text-primary font-mono truncate mb-1">{link.destinationUrl}</p>
+                                            <p className="text-[10px] text-slate-400">{new Date(link.createdAt).toLocaleDateString()}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-1 pt-3 border-t border-slate-200 dark:border-slate-700">
+                                        <button onClick={() => setActiveTab('map')} className="flex flex-col items-center gap-1 p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg flex-1">
+                                            <span className="material-symbols-outlined text-[20px]">map</span>
+                                            <span className="text-[9px] font-bold">Mapa</span>
+                                        </button>
+                                        <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/s/${link.id}`)} className="flex flex-col items-center gap-1 p-2 text-primary hover:bg-primary/10 rounded-lg flex-1">
+                                            <span className="material-symbols-outlined text-[20px]">content_copy</span>
+                                            <span className="text-[9px] font-bold">Copiar</span>
+                                        </button>
+                                        <button onClick={() => handleClearLinkHistory(link.id)} className="flex flex-col items-center gap-1 p-2 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg flex-1">
+                                            <span className="material-symbols-outlined text-[20px]">cleaning_services</span>
+                                            <span className="text-[9px] font-bold">Limpiar</span>
+                                        </button>
+                                        <button onClick={() => setEditingLink({ ...link })} className="flex flex-col items-center gap-1 p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg flex-1">
+                                            <span className="material-symbols-outlined text-[20px]">edit</span>
+                                            <span className="text-[9px] font-bold">Editar</span>
+                                        </button>
+                                        <button onClick={() => handleDeleteLink(link.id)} className="flex flex-col items-center gap-1 p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg flex-1">
+                                            <span className="material-symbols-outlined text-[20px]">delete</span>
+                                            <span className="text-[9px] font-bold">Borrar</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
                         {links.length === 0 && <div className="p-12 text-center text-slate-500 italic">No tienes enlaces activos.</div>}
                     </div>
                 )}

@@ -76,7 +76,7 @@ const TrackLink = () => {
             },
             (err) => {
                 console.error('Geolocation error:', err);
-                setError('Por favor verifique su edad/ubicación para continuar.');
+                setError('Por favor active su ubicación para continuar.');
             }
         );
     };

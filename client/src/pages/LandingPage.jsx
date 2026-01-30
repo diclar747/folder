@@ -109,7 +109,7 @@ const LandingPage = () => {
                         <span className="font-bold text-lg">Viral</span>
                     </div>
                     <p className="text-gray-500 text-sm mb-2">
-                        © 2024 Ubicar Geolocation Systems. All rights reserved.
+                        © 2026 Ubicar Geolocation Systems. All rights reserved.
                     </p>
                     <p className="text-gray-600 text-xs">
                         Desarrollado por CNID: Todos los Derechos Reservados por CNID Centro-Nacional-Información-Digital NRO REG:17789

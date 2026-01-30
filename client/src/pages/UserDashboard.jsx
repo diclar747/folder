@@ -58,12 +58,15 @@ const UserDashboard = () => {
     const socketRef = useRef();
     const lastSessionIdRef = useRef(null);
     const [pausedLinks, setPausedLinks] = useState(new Set());
+    const pausedLinksRef = useRef(new Set());
 
     const togglePause = (id) => {
         setPausedLinks(prev => {
             const next = new Set(prev);
             if (next.has(id)) next.delete(id);
             else next.add(id);
+
+            pausedLinksRef.current = next;
             return next;
         });
     };
@@ -110,6 +113,12 @@ const UserDashboard = () => {
         });
 
         socket.on('location-updated', (session) => {
+            // Check if this link is paused (muted)
+            if (pausedLinksRef.current.has(session.linkId)) {
+                console.log('Update ignored for paused link:', session.linkId);
+                return;
+            }
+
             fetchSessions();
             setToast(session);
             playNotificationSound();

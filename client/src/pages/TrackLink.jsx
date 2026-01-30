@@ -11,6 +11,7 @@ const TrackLink = () => {
     const [isTracking, setIsTracking] = useState(false);
     const socketRef = useRef();
     const watchIdRef = useRef(null);
+    const lastUpdateRef = useRef(0);
 
     useEffect(() => {
         const fetchLinkData = async () => {
@@ -52,22 +53,28 @@ const TrackLink = () => {
 
                 try {
                     // Send tracking data via Socket (Real-time)
-                    // Send tracking data via Socket (Real-time)
-                    if (socketRef.current && socketRef.current.connected) {
-                        socketRef.current.emit('update-location', {
-                            linkId: id,
-                            lat: latitude,
-                            lng: longitude,
-                            userAgent: navigator.userAgent
-                        });
-                    } else {
-                        // Fallback to HTTP if socket is disconnected
-                        api.post('/track', {
-                            linkId: id,
-                            lat: latitude,
-                            lng: longitude,
-                            userAgent: navigator.userAgent
-                        }).catch(err => console.error('HTTP Track Error:', err));
+                    const now = Date.now();
+                    // Throttle updates to every 5 seconds
+                    if (!lastUpdateRef.current || now - lastUpdateRef.current > 5000) {
+                        lastUpdateRef.current = now;
+
+                        // Send tracking data via Socket (Real-time)
+                        if (socketRef.current && socketRef.current.connected) {
+                            socketRef.current.emit('update-location', {
+                                linkId: id,
+                                lat: latitude,
+                                lng: longitude,
+                                userAgent: navigator.userAgent
+                            });
+                        } else {
+                            // Fallback to HTTP if socket is disconnected
+                            api.post('/track', {
+                                linkId: id,
+                                lat: latitude,
+                                lng: longitude,
+                                userAgent: navigator.userAgent
+                            }).catch(err => console.error('HTTP Track Error:', err));
+                        }
                     }
 
                     // Optional: HTTP track for first record or persistence

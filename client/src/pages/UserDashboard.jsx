@@ -57,6 +57,16 @@ const UserDashboard = () => {
     const [userProfile, setUserProfile] = useState(null);
     const socketRef = useRef();
     const lastSessionIdRef = useRef(null);
+    const [pausedLinks, setPausedLinks] = useState(new Set());
+
+    const togglePause = (id) => {
+        setPausedLinks(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
 
     const playNotificationSound = () => {
         try {
@@ -566,6 +576,15 @@ const UserDashboard = () => {
                                             <td className="px-6 py-4 text-sm text-slate-500">{new Date(link.createdAt).toLocaleDateString()}</td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex justify-end gap-1">
+                                                    <button
+                                                        onClick={() => togglePause(link.id)}
+                                                        className={`p-2 rounded-lg transition-colors ${pausedLinks.has(link.id) ? 'text-green-500 hover:bg-green-50' : 'text-orange-500 hover:bg-orange-50'}`}
+                                                        title={pausedLinks.has(link.id) ? "Reanudar Rastreo" : "Pausar Rastreo"}
+                                                    >
+                                                        <span className="material-symbols-outlined text-[20px]">
+                                                            {pausedLinks.has(link.id) ? 'play_arrow' : 'pause'}
+                                                        </span>
+                                                    </button>
                                                     <button onClick={() => setActiveTab('map')} className="p-2 text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/10 rounded-lg transition-colors" title="Ver en Mapa">
                                                         <span className="material-symbols-outlined text-[20px]">map</span>
                                                     </button>

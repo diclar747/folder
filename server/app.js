@@ -126,10 +126,12 @@ app.get('/api/ping', (req, res) => {
 // Deep Debug Route
 app.get('/api/setup-db', async (req, res) => {
     try {
-        await sequelize.sync({ alter: true });
-        res.send('Database Synced Successfully! (Hidden Column Added)');
+        // Use raw query for speed and reliability
+        await sequelize.query('ALTER TABLE "Sessions" ADD COLUMN IF NOT EXISTS "active" BOOLEAN DEFAULT true;');
+        res.send('Database Updated Successfully! (Column Active Added via SQL)');
     } catch (error) {
-        res.status(500).send('Sync Failed: ' + error.message);
+        console.error('Setup DB Error:', error);
+        res.status(500).send('Setup Failed: ' + error.message);
     }
 });
 

@@ -57,6 +57,7 @@ const UserDashboard = () => {
     const [userProfile, setUserProfile] = useState(null);
     const socketRef = useRef();
     const lastSessionIdRef = useRef(null);
+    const lastAlertRef = useRef(null);
     const [pausedLinks, setPausedLinks] = useState(new Set());
     const pausedLinksRef = useRef(new Set());
 
@@ -115,9 +116,23 @@ const UserDashboard = () => {
         socket.on('location-updated', (session) => {
             // Check if this link is paused (muted)
             if (pausedLinksRef.current.has(session.linkId)) {
-                console.log('Update ignored for paused link:', session.linkId);
                 return;
             }
+
+            // Suppress repeated alarms for the same IP within 60 seconds
+            const now = Date.now();
+            if (
+                lastAlertRef.current &&
+                lastAlertRef.current.ip === session.ip &&
+                (now - lastAlertRef.current.time < 60000)
+            ) {
+                // Just update data, no sound/toast
+                fetchSessions();
+                return;
+            }
+
+            // New Alert
+            lastAlertRef.current = { ip: session.ip, time: now };
 
             fetchSessions();
             setToast(session);

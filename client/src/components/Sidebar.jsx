@@ -62,6 +62,7 @@ const Sidebar = ({ activeTab, onTabChange }) => {
                             <hr className="my-2 border-transparent" />
                             <SidebarItem id="links" icon="link" label="Mis Enlaces" />
                             <SidebarItem id="analytics" icon="analytics" label="Analíticas" />
+                            <SidebarItem id="users" icon="group" label="Usuarios" />
                             <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
                                 <SidebarItem id="settings" icon="settings" label="Configuración" />
                             </div>

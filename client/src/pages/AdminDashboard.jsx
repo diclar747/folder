@@ -6,6 +6,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Sidebar from '../components/Sidebar';
 import CreateLinkForm from '../components/CreateLinkForm';
+import UserManagement from '../components/UserManagement';
 
 const mapContainerStyle = {
     width: '100%',
@@ -382,6 +383,8 @@ const AdminDashboard = () => {
                         </div>
                     </div>
                 )}
+
+                {activeTab === 'users' && <UserManagement />}
 
                 {activeTab === 'links' && (
                     <div className="p-8">

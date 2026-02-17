@@ -334,6 +334,173 @@ app.get('/api/admin/links', authenticateToken, async (req, res) => {
     }
 });
 
+// Admin Middleware - Check if user is admin
+const requireAdmin = (req, res, next) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: 'Acceso denegado. Se requieren permisos de administrador.' });
+    }
+    next();
+};
+
+// --- ADMIN USER MANAGEMENT ROUTES ---
+
+// Get all users (Admin only)
+app.get('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const users = await models.User.findAll({
+            attributes: { exclude: ['password'] },
+            order: [['createdAt', 'DESC']]
+        });
+        res.json(users);
+    } catch (error) {
+        console.error('Error fetching users:', error);
+        res.status(500).json({ message: 'Error obteniendo usuarios: ' + error.message });
+    }
+});
+
+// Get single user (Admin only)
+app.get('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const user = await models.User.findByPk(req.params.id, {
+            attributes: { exclude: ['password'] }
+        });
+        if (!user) {
+            return res.status(404).json({ message: 'Usuario no encontrado' });
+        }
+        res.json(user);
+    } catch (error) {
+        console.error('Error fetching user:', error);
+        res.status(500).json({ message: 'Error obteniendo usuario: ' + error.message });
+    }
+});
+
+// Create new user (Admin only)
+app.post('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
+    const { email, password, role, isActive, address, city, phone } = req.body;
+    
+    try {
+        // Check if email already exists
+        const existingUser = await models.User.findOne({ where: { email } });
+        if (existingUser) {
+            return res.status(400).json({ message: 'El email ya está registrado' });
+        }
+
+        // Validate required fields
+        if (!email || !password) {
+            return res.status(400).json({ message: 'Email y contraseña son requeridos' });
+        }
+
+        // Create user
+        const newUser = await models.User.create({
+            email,
+            password, // Note: In production, hash this!
+            role: role || 'user',
+            isActive: isActive !== undefined ? isActive : true,
+            address,
+            city,
+            phone
+        });
+
+        const userResponse = newUser.toJSON();
+        delete userResponse.password;
+
+        res.status(201).json(userResponse);
+    } catch (error) {
+        console.error('Error creating user:', error);
+        res.status(500).json({ message: 'Error creando usuario: ' + error.message });
+    }
+});
+
+// Update user (Admin only)
+app.put('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+    const { email, password, role, isActive, address, city, phone, avatarUrl } = req.body;
+    
+    try {
+        const user = await models.User.findByPk(req.params.id);
+        if (!user) {
+            return res.status(404).json({ message: 'Usuario no encontrado' });
+        }
+
+        // Check if email is being changed and if it's already taken
+        if (email && email !== user.email) {
+            const existingUser = await models.User.findOne({ where: { email } });
+            if (existingUser) {
+                return res.status(400).json({ message: 'El email ya está registrado' });
+            }
+        }
+
+        // Build updates object
+        const updates = {};
+        if (email !== undefined) updates.email = email;
+        if (password !== undefined && password.trim() !== '') updates.password = password; // Note: In production, hash this!
+        if (role !== undefined) updates.role = role;
+        if (isActive !== undefined) updates.isActive = isActive;
+        if (address !== undefined) updates.address = address;
+        if (city !== undefined) updates.city = city;
+        if (phone !== undefined) updates.phone = phone;
+        if (avatarUrl !== undefined) updates.avatarUrl = avatarUrl;
+
+        await user.update(updates);
+
+        const userResponse = user.toJSON();
+        delete userResponse.password;
+
+        res.json(userResponse);
+    } catch (error) {
+        console.error('Error updating user:', error);
+        res.status(500).json({ message: 'Error actualizando usuario: ' + error.message });
+    }
+});
+
+// Toggle user active status (Admin only)
+app.patch('/api/admin/users/:id/toggle-status', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const user = await models.User.findByPk(req.params.id);
+        if (!user) {
+            return res.status(404).json({ message: 'Usuario no encontrado' });
+        }
+
+        // Prevent deactivating yourself
+        if (user.id === req.user.id) {
+            return res.status(400).json({ message: 'No puedes desactivar tu propia cuenta' });
+        }
+
+        await user.update({ isActive: !user.isActive });
+
+        const userResponse = user.toJSON();
+        delete userResponse.password;
+
+        res.json({ 
+            message: `Usuario ${user.isActive ? 'activado' : 'desactivado'} exitosamente`,
+            user: userResponse 
+        });
+    } catch (error) {
+        console.error('Error toggling user status:', error);
+        res.status(500).json({ message: 'Error cambiando estado del usuario: ' + error.message });
+    }
+});
+
+// Delete user (Admin only)
+app.delete('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const user = await models.User.findByPk(req.params.id);
+        if (!user) {
+            return res.status(404).json({ message: 'Usuario no encontrado' });
+        }
+
+        // Prevent deleting yourself
+        if (user.id === req.user.id) {
+            return res.status(400).json({ message: 'No puedes eliminar tu propia cuenta' });
+        }
+
+        await user.destroy();
+        res.json({ message: 'Usuario eliminado exitosamente' });
+    } catch (error) {
+        console.error('Error deleting user:', error);
+        res.status(500).json({ message: 'Error eliminando usuario: ' + error.message });
+    }
+});
+
 // User Sessions
 app.get('/api/user/sessions', authenticateToken, async (req, res) => {
     try {

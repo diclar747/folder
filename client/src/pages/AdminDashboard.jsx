@@ -112,6 +112,7 @@ const AdminDashboard = () => {
     const [links, setLinks] = useState([]);
     const [sessions, setSessions] = useState([]);
     const [activeTab, setActiveTab] = useState('dashboard');
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [selectedSession, setSelectedSession] = useState(null);
     const [editingLink, setEditingLink] = useState(null);
     const [toast, setToast] = useState(null);
@@ -215,10 +216,10 @@ const AdminDashboard = () => {
     return (
         <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 antialiased overflow-hidden min-h-screen flex w-full">
             {/* Sidebar Navigation */}
-            <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+            <Sidebar activeTab={activeTab} onTabChange={setActiveTab} onCollapseChange={setSidebarCollapsed} />
 
             {/* Main Content Area */}
-            <main className="flex-1 flex flex-col relative overflow-hidden">
+            <main className={`flex-1 flex flex-col relative overflow-hidden transition-all duration-300 ${sidebarCollapsed ? 'ml-16' : 'ml-64'}`}>
                 {toast && (
                     <div className="fixed top-8 right-8 z-[101] animate-in slide-in-from-right-8 duration-300">
                         <div className="bg-slate-900 border border-white/20 rounded-2xl shadow-2xl p-4 flex items-center gap-4 text-white max-w-sm">

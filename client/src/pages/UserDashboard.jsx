@@ -36,6 +36,7 @@ const libraries = ['places', 'geometry'];
 const UserDashboard = () => {
     const { logout } = useAuth();
     const navigate = useNavigate();
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
     const { isLoaded, loadError } = useLoadScript({
         googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyC2p7BO6eOuToNeQSQ7L6V6cqtFpNhvapQ',
@@ -272,15 +273,7 @@ const UserDashboard = () => {
         return { os, browser };
     };
 
-    const SidebarItem = ({ id, icon, label }) => (
-        <button
-            onClick={() => setActiveTab(id)}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${activeTab === id ? 'bg-primary/10 text-primary font-bold' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-        >
-            <span className="material-symbols-outlined text-[22px]">{icon}</span>
-            <span className="text-sm">{label}</span>
-        </button>
-    );
+
 
     if (loadError) return <div className="flex items-center justify-center h-screen text-red-500">Error loading maps</div>;
     if (!isLoaded) return <div className="flex items-center justify-center h-screen text-slate-500">Loading Maps...</div>;
@@ -288,38 +281,9 @@ const UserDashboard = () => {
     return (
         <div className="bg-background-light dark:bg-background-dark min-h-screen flex font-display">
             {/* Desktop Sidebar */}
-            <aside className="hidden md:flex w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex-col fixed h-full z-20">
-                <div className="p-6">
-                    <div className="flex items-center gap-2 mb-8">
-                        <div className="bg-primary rounded-lg p-1.5 text-white">
-                            <span className="material-symbols-outlined text-xl">radar</span>
-                        </div>
-                        <h1 className="text-slate-900 dark:text-white font-bold text-lg">GeoRastreador <span className="text-[10px] text-primary">v1.2 Sat</span></h1>
-                    </div>
-                    <nav className="flex flex-col gap-1">
-                        <SidebarItem id="overview" icon="dashboard" label="Resumen" />
-                        <SidebarItem id="map" icon="location_on" label="Mapa en Vivo" />
-                        <SidebarItem id="links" icon="link" label="Mis Enlaces" />
-                        <hr className="my-2 border-slate-100 dark:border-slate-800" />
-                        <button
-                            onClick={() => { logout(); navigate('/login'); }}
-                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-all font-medium"
-                        >
-                            <span className="material-symbols-outlined text-[22px]">logout</span>
-                            <span className="text-sm">Cerrar Sesión</span>
-                        </button>
-                    </nav>
-                </div>
-                <div className="mt-auto p-6 border-t border-slate-100 dark:border-slate-800 space-y-3">
-                    <button
-                        onClick={() => setActiveTab('create')}
-                        className="flex w-full items-center justify-center gap-2 rounded-lg h-10 bg-primary text-white text-sm font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all"
-                    >
-                        <span className="material-symbols-outlined text-lg">add_link</span>
-                        Crear Enlace
-                    </button>
-                </div>
-            </aside>
+            <div className="hidden md:block">
+                <Sidebar activeTab={activeTab} onTabChange={setActiveTab} onCollapseChange={setSidebarCollapsed} />
+            </div>
 
             {/* Mobile Bottom Navigation */}
             <nav className="md:hidden fixed bottom-0 left-0 w-full bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex justify-around items-center p-2 pb-safe z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
@@ -349,7 +313,7 @@ const UserDashboard = () => {
                 </button>
             </nav>
 
-            <main className="flex-1 ml-0 md:ml-64 p-4 md:p-8 pb-24 md:pb-8 overflow-y-auto w-full">
+            <main className={`flex-1 p-4 md:p-8 pb-24 md:pb-8 overflow-y-auto w-full transition-all duration-300 ${sidebarCollapsed ? 'md:ml-16' : 'md:ml-64'}`}>
                 <header className="flex justify-between items-center mb-8">
                     <div>
                         <h2 className="text-2xl font-bold text-slate-900 dark:text-white">

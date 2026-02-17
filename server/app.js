@@ -48,7 +48,7 @@ app.get('/', (req, res) => {
 // --- ROUTES ---
 
 // Social Share Open Graph Proxy
-// Social Share Open Graph Proxy
+// Detects bots (WhatsApp, Facebook, Twitter) and serves meta tags without redirect
 app.get('/s/:id', async (req, res) => {
     let title = 'GeoRastreador';
     let description = 'Comparte tu ubicación en tiempo real.';
@@ -59,57 +59,182 @@ app.get('/s/:id', async (req, res) => {
         if (models && models.Link) {
             const link = await models.Link.findByPk(req.params.id);
             if (link) {
-                title = link.title;
-                description = link.description;
-                image = link.imageUrl;
+                title = link.title || title;
+                description = link.description || description;
+                image = link.imageUrl || image;
             }
         }
     } catch (e) {
-        console.error('Share Route Sync Error (serving defaults):', e);
-        // Continue to serve HTML even if DB fails, so the user sees something
+        console.error('Share Route Error:', e);
     }
 
+    // Detect social media bots - they should NOT be redirected
+    const userAgent = req.headers['user-agent'] || '';
+    const isBot = /facebookexternalhit|Facebot|WhatsApp|TelegramBot|TwitterBot|LinkedInBot|Slackbot|Discordbot|Googlebot/i.test(userAgent);
+
+    // Escape special characters for HTML
+    const escapeHtml = (text) => {
+        if (!text) return '';
+        return text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    };
+
+    const safeTitle = escapeHtml(title);
+    const safeDescription = escapeHtml(description);
+    const fullUrl = `${req.protocol}://${req.get('host')}/s/${req.params.id}`;
+
+    // For bots: serve meta tags only, no redirect
+    if (isBot) {
+        const botHtml = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${safeTitle}</title>
+    <meta name="description" content="${safeDescription}">
+    
+    <!-- Open Graph / Facebook / WhatsApp -->
+    <meta property="og:site_name" content="GeoRastreador">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="${fullUrl}">
+    <meta property="og:title" content="${safeTitle}">
+    <meta property="og:description" content="${safeDescription}">
+    <meta property="og:image" content="${image}">
+    <meta property="og:image:secure_url" content="${image}">
+    <meta property="og:image:type" content="image/png">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="${safeTitle}">
+    <meta name="twitter:description" content="${safeDescription}">
+    <meta name="twitter:image" content="${image}">
+</head>
+<body>
+    <h1>${safeTitle}</h1>
+    <p>${safeDescription}</p>
+</body>
+</html>`;
+        return res.send(botHtml);
+    }
+
+    // For regular users: show loading page with redirect
     const html = `
-        <!DOCTYPE html>
-        <html lang="es">
-        <head>
-            <meta charset="UTF-8">
-            <title>${title}</title>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            
-            <!-- Open Graph / Facebook / WhatsApp -->
-            <meta property="og:type" content="website">
-            <meta property="og:url" content="${req.protocol}://${req.get('host')}/s/${req.params.id}">
-            <meta property="og:title" content="${title}">
-            <meta property="og:description" content="${description}">
-            <meta property="og:image" content="${image}">
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${safeTitle}</title>
+    <meta name="description" content="${safeDescription}">
+    
+    <!-- Open Graph / Facebook / WhatsApp -->
+    <meta property="og:site_name" content="GeoRastreador">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="${fullUrl}">
+    <meta property="og:title" content="${safeTitle}">
+    <meta property="og:description" content="${safeDescription}">
+    <meta property="og:image" content="${image}">
+    <meta property="og:image:secure_url" content="${image}">
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="${safeTitle}">
+    <meta name="twitter:description" content="${safeDescription}">
+    <meta name="twitter:image" content="${image}">
 
-            <!-- Twitter -->
-            <meta property="twitter:card" content="summary_large_image">
-            <meta property="twitter:title" content="${title}">
-            <meta property="twitter:description" content="${description}">
-            <meta property="twitter:image" content="${image}">
-
-            <style>
-                body { font-family: sans-serif; background: #0f172a; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
-                .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 20px; }
-                @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-            </style>
-            
-            <script>
-                // Redirect immediately
-                setTimeout(() => {
-                    window.location.href = '${redirectUrl}';
-                }, 1500); // 1.5s delay to ensure social bots read the meta tags
-            </script>
-        </head>
-        <body>
-            <div class="loader"></div>
-            <h2>Cargando...</h2>
-            <p>Si no eres redirigido, <a href="${redirectUrl}" style="color: #38bdf8">haz clic aquí</a>.</p>
-        </body>
-        </html>
-    `;
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); 
+            color: white; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            min-height: 100vh; 
+            text-align: center; 
+            padding: 20px;
+        }
+        .container { max-width: 400px; }
+        .icon { 
+            width: 80px; 
+            height: 80px; 
+            background: rgba(255,255,255,0.1); 
+            border-radius: 20px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            margin: 0 auto 24px;
+            font-size: 40px;
+        }
+        .loader { 
+            border: 3px solid rgba(255,255,255,0.1); 
+            border-top: 3px solid #38bdf8; 
+            border-radius: 50%; 
+            width: 40px; 
+            height: 40px; 
+            animation: spin 1s linear infinite; 
+            margin: 0 auto 20px; 
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        h2 { font-size: 24px; margin-bottom: 12px; font-weight: 600; }
+        p { color: #94a3b8; margin-bottom: 24px; line-height: 1.6; }
+        .preview-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 16px;
+            margin: 20px 0;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .preview-card img {
+            width: 100%;
+            max-width: 300px;
+            height: 160px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #38bdf8;
+            color: #0f172a;
+            padding: 12px 24px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: opacity 0.2s;
+        }
+        .btn:hover { opacity: 0.9; }
+    </style>
+    
+    <script>
+        setTimeout(() => {
+            window.location.href = '${redirectUrl}';
+        }, 2500);
+    </script>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">📍</div>
+        <div class="loader"></div>
+        <h2>${safeTitle}</h2>
+        <p>${safeDescription}</p>
+        ${image ? `<div class="preview-card"><img src="${image}" alt="Preview" onerror="this.style.display='none'"></div>` : ''}
+        <a href="${redirectUrl}" class="btn">
+            <span>Continuar</span>
+            <span>→</span>
+        </a>
+    </div>
+</body>
+</html>`;
     res.send(html);
 });
 

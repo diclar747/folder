@@ -26,7 +26,7 @@ const CreateLinkForm = ({ onLinkCreated }) => {
         }
     };
 
-    const trackingUrl = createdLink ? `${window.location.origin}/track/${createdLink.id}` : '';
+    const trackingUrl = createdLink ? `${window.location.origin}/s/${createdLink.id}` : '';
 
     return (
         <div className="max-w-[800px] w-full flex flex-col gap-8 mx-auto">

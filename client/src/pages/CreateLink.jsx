@@ -30,7 +30,7 @@ const CreateLink = () => {
         }
     };
 
-    const trackingUrl = createdLink ? `${window.location.origin}/track/${createdLink.id}` : '';
+    const trackingUrl = createdLink ? `${window.location.origin}/s/${createdLink.id}` : '';
 
     return (
         <div className="bg-background-light dark:bg-background-dark font-display text-white transition-colors duration-200 min-h-screen flex">

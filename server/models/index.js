@@ -3,12 +3,26 @@ const User = require('./User');
 const Link = require('./Link');
 const Session = require('./Session');
 
-// Associations
-User.hasMany(Link, { foreignKey: 'createdBy' });
-Link.belongsTo(User, { foreignKey: 'createdBy' });
+// Define associations
+User.hasMany(Link, { 
+    foreignKey: 'createdBy',
+    as: 'links'
+});
 
-Link.hasMany(Session, { foreignKey: 'linkId' });
-Session.belongsTo(Link, { foreignKey: 'linkId' });
+Link.belongsTo(User, { 
+    foreignKey: 'createdBy',
+    as: 'user'
+});
+
+Link.hasMany(Session, { 
+    foreignKey: 'linkId',
+    as: 'sessions'
+});
+
+Session.belongsTo(Link, { 
+    foreignKey: 'linkId',
+    as: 'link'
+});
 
 module.exports = {
     sequelize,

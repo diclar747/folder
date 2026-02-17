@@ -3,16 +3,20 @@ const sequelize = require('../config/database');
 
 const Session = sequelize.define('Session', {
     id: {
-        type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,
+        type: DataTypes.INTEGER,
+        autoIncrement: true,
         primaryKey: true
     },
     linkId: {
-        type: DataTypes.STRING,
-        allowNull: false
+        type: DataTypes.STRING(50),
+        allowNull: false,
+        references: {
+            model: 'links',
+            key: 'id'
+        }
     },
     socketId: {
-        type: DataTypes.STRING,
+        type: DataTypes.STRING(100),
         allowNull: true
     },
     lat: {
@@ -28,17 +32,20 @@ const Session = sequelize.define('Session', {
         defaultValue: DataTypes.NOW
     },
     userAgent: {
-        type: DataTypes.STRING,
+        type: DataTypes.TEXT,
         allowNull: true
     },
     ip: {
-        type: DataTypes.STRING,
+        type: DataTypes.STRING(45),
         allowNull: true
     },
     active: {
         type: DataTypes.BOOLEAN,
         defaultValue: true
     }
+}, {
+    timestamps: false,
+    tableName: 'sessions'
 });
 
 module.exports = Session;

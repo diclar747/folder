@@ -3,17 +3,17 @@ const sequelize = require('../config/database');
 
 const User = sequelize.define('User', {
     id: {
-        type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,
+        type: DataTypes.INTEGER,
+        autoIncrement: true,
         primaryKey: true
     },
     email: {
-        type: DataTypes.STRING,
+        type: DataTypes.STRING(255),
         allowNull: false,
         unique: true
     },
     password: {
-        type: DataTypes.STRING,
+        type: DataTypes.STRING(255),
         allowNull: false
     },
     role: {
@@ -25,23 +25,24 @@ const User = sequelize.define('User', {
         defaultValue: true
     },
     avatarUrl: {
-        type: DataTypes.STRING,
+        type: DataTypes.TEXT,
         allowNull: true
     },
     address: {
-        type: DataTypes.STRING,
+        type: DataTypes.STRING(255),
         allowNull: true
     },
     city: {
-        type: DataTypes.STRING,
+        type: DataTypes.STRING(100),
         allowNull: true
     },
     phone: {
-        type: DataTypes.STRING,
+        type: DataTypes.STRING(50),
         allowNull: true
     }
 }, {
-    timestamps: true
+    timestamps: true,
+    tableName: 'users'
 });
 
 module.exports = User;

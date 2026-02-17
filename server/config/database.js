@@ -1,78 +1,25 @@
 const { Sequelize } = require('sequelize');
-const dotenv = require('dotenv');
 
-// Load environment variables
-dotenv.config();
+// Use the appropriate database URL for Vercel deployment
+// Force Neon DB to avoid Vercel Postgres shadowing
+const databaseUrl = 'postgresql://neondb_owner:npg_zaGO5Fmeokp9@ep-jolly-shape-ah45awdh-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require';
 
-// MySQL Configuration
-// For local development, use .env file
-// For production hosting, set environment variables
-const config = {
-    host: process.env.DB_HOST || 'localhost',
-    port: process.env.DB_PORT || 3306,
-    database: process.env.DB_NAME || 'ubicar_db',
-    username: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    dialect: 'mysql',
-    logging: process.env.NODE_ENV === 'development' ? console.log : false,
+const sequelize = new Sequelize(databaseUrl, {
+    dialect: 'postgres',
+    dialectModule: require('pg'), // Required for Vercel/Next.js/Serverless
+    dialectOptions: {
+        ssl: {
+            require: true,
+            rejectUnauthorized: false
+        }
+    },
+    logging: false, // Disable logging in production, enable for debugging
     pool: {
-        max: 10,
+        max: 20,
         min: 0,
         acquire: 30000,
         idle: 10000
-    },
-    dialectOptions: {
-        // For hosting providers that require SSL (uncomment if needed):
-        // ssl: {
-        //     require: true,
-        //     rejectUnauthorized: false
-        // }
     }
-};
-
-// Alternative: Use DATABASE_URL if provided (some hosting providers use this format)
-let sequelize;
-
-if (process.env.DATABASE_URL) {
-    // Parse DATABASE_URL format: mysql://user:pass@host:port/database
-    sequelize = new Sequelize(process.env.DATABASE_URL, {
-        dialect: 'mysql',
-        logging: process.env.NODE_ENV === 'development' ? console.log : false,
-        pool: {
-            max: 10,
-            min: 0,
-            acquire: 30000,
-            idle: 10000
-        }
-    });
-} else {
-    // Use individual config parameters
-    sequelize = new Sequelize(
-        config.database,
-        config.username,
-        config.password,
-        {
-            host: config.host,
-            port: config.port,
-            dialect: config.dialect,
-            logging: config.logging,
-            pool: config.pool,
-            dialectOptions: config.dialectOptions
-        }
-    );
-}
-
-// Test connection function
-const testConnection = async () => {
-    try {
-        await sequelize.authenticate();
-        console.log('✅ MySQL connection established successfully.');
-        return true;
-    } catch (error) {
-        console.error('❌ Unable to connect to MySQL database:', error.message);
-        return false;
-    }
-};
+});
 
 module.exports = sequelize;
-module.exports.testConnection = testConnection;

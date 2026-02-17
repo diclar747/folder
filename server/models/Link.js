@@ -3,11 +3,11 @@ const sequelize = require('../config/database');
 
 const Link = sequelize.define('Link', {
     id: {
-        type: DataTypes.STRING(50),
+        type: DataTypes.STRING,
         primaryKey: true
     },
     title: {
-        type: DataTypes.STRING(255),
+        type: DataTypes.STRING,
         allowNull: true
     },
     description: {
@@ -19,24 +19,17 @@ const Link = sequelize.define('Link', {
         allowNull: true
     },
     destinationUrl: {
-        type: DataTypes.TEXT,
+        type: DataTypes.STRING,
         allowNull: false
     },
     createdBy: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        references: {
-            model: 'users',
-            key: 'id'
-        }
+        type: DataTypes.UUID,
+        allowNull: false
     },
     buttonText: {
-        type: DataTypes.STRING(100),
+        type: DataTypes.STRING,
         defaultValue: 'Más información'
     }
-}, {
-    timestamps: true,
-    tableName: 'links'
 });
 
 module.exports = Link;

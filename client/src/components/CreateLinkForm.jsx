@@ -95,15 +95,16 @@ const CreateLinkForm = ({ onLinkCreated }) => {
                                 </label>
 
                                 <label className="flex flex-col gap-2">
-                                    <span className="text-gray-700 dark:text-slate-300 text-xs font-bold uppercase">URL de Imagen</span>
-                                    <input
+                                    <span className="text-gray-700 dark:text-slate-300 text-xs font-bold uppercase">Imagen</span>
+                                    <textarea
                                         name="imageUrl"
                                         value={formData.imageUrl}
                                         onChange={handleChange}
-                                        className="w-full h-11 px-4 rounded-lg bg-white dark:bg-slate-950 border border-gray-200 dark:border-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-slate-900 dark:text-white"
-                                        placeholder="https://..."
-                                        type="text"
-                                    />
+                                        className="w-full rounded-lg bg-white dark:bg-slate-950 border border-gray-200 dark:border-slate-800 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-slate-900 dark:text-white resize-none font-mono"
+                                        placeholder="Pega una URL (https://...) o un base64 (data:image/...)"
+                                        rows="2"
+                                    ></textarea>
+                                    <span className="text-[10px] text-slate-400">Acepta URL pública o base64</span>
                                 </label>
 
                                 <label className="flex flex-col gap-2">

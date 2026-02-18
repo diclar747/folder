@@ -28,7 +28,7 @@ app.use(cors({
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 
 // Root Route (Welcome)
@@ -330,10 +330,67 @@ const authenticateToken = (req, res, next) => {
 
 // --- LINK & USER ROUTES (Restored) ---
 
+// Helper: Upload base64 image to ImgBB and return public URL
+const uploadBase64ToImgBB = async (base64Data) => {
+    const cleanBase64 = base64Data.replace(/^data:image\/\w+;base64,/, '');
+    const IMGBB_API_KEY = process.env.IMGBB_API_KEY || '44ab9ce82c1dd8a6f1fa527dada0be59';
+    const https = require('https');
+    const formBody = `key=${IMGBB_API_KEY}&image=${encodeURIComponent(cleanBase64)}`;
+
+    return new Promise((resolve, reject) => {
+        const options = {
+            hostname: 'api.imgbb.com',
+            path: '/1/upload',
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Content-Length': Buffer.byteLength(formBody)
+            }
+        };
+        const request = https.request(options, (response) => {
+            let data = '';
+            response.on('data', chunk => data += chunk);
+            response.on('end', () => {
+                try {
+                    const result = JSON.parse(data);
+                    if (result.success) {
+                        resolve(result.data.display_url || result.data.url);
+                    } else {
+                        reject(new Error('ImgBB upload failed'));
+                    }
+                } catch (e) {
+                    reject(new Error('Failed to parse ImgBB response'));
+                }
+            });
+        });
+        request.on('error', reject);
+        request.write(formBody);
+        request.end();
+    });
+};
+
+// Helper: If imageUrl is base64, upload to ImgBB. If it's a URL, keep as-is.
+const ensurePublicImageUrl = async (imageUrl) => {
+    if (!imageUrl) return imageUrl;
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) return imageUrl;
+    if (imageUrl.startsWith('data:image/')) {
+        try {
+            return await uploadBase64ToImgBB(imageUrl);
+        } catch (e) {
+            console.error('Auto-upload failed:', e.message);
+            return null; // Will use default fallback
+        }
+    }
+    return imageUrl;
+};
+
 // Create Link
 app.post('/api/links', authenticateToken, async (req, res) => {
-    const { title, description, imageUrl, destinationUrl, buttonText } = req.body;
+    let { title, description, imageUrl, destinationUrl, buttonText } = req.body;
     try {
+        // Auto-convert base64 images to public URLs
+        imageUrl = await ensurePublicImageUrl(imageUrl);
+
         const newLink = await models.Link.create({
             id: Math.random().toString(36).substr(2, 9),
             title, description, imageUrl, destinationUrl, buttonText,
@@ -358,7 +415,7 @@ app.get('/api/links/:id', async (req, res) => {
 
 // Update Link
 app.put('/api/links/:id', authenticateToken, async (req, res) => {
-    const { title, description, imageUrl, destinationUrl, buttonText } = req.body;
+    let { title, description, imageUrl, destinationUrl, buttonText } = req.body;
     try {
         const link = await models.Link.findByPk(req.params.id);
         if (!link) return res.status(404).json({ message: 'Enlace no encontrado' });
@@ -366,6 +423,9 @@ app.put('/api/links/:id', authenticateToken, async (req, res) => {
         if (link.createdBy !== req.user.id && req.user.role !== 'admin') {
             return res.status(403).json({ message: 'No tienes permiso' });
         }
+
+        // Auto-convert base64 images to public URLs
+        imageUrl = await ensurePublicImageUrl(imageUrl);
 
         await link.update({ title, description, imageUrl, destinationUrl, buttonText });
         res.json(link);
@@ -673,6 +733,20 @@ app.put('/api/user/profile', authenticateToken, async (req, res) => {
         res.json(updatedUser);
     } catch (error) {
         res.status(500).json({ message: error.message });
+    }
+});
+
+// Upload Image (converts base64 to public URL via ImgBB)
+app.post('/api/upload-image', authenticateToken, async (req, res) => {
+    try {
+        const { image } = req.body;
+        if (!image) return res.status(400).json({ message: 'No image provided' });
+
+        const publicUrl = await uploadBase64ToImgBB(image);
+        res.json({ url: publicUrl, display_url: publicUrl });
+    } catch (error) {
+        console.error('Image Upload Error:', error);
+        res.status(500).json({ message: 'Error uploading image: ' + error.message });
     }
 });
 

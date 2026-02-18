@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import api from '../services/api';
 
 const CreateLinkForm = ({ onLinkCreated }) => {
@@ -10,9 +10,43 @@ const CreateLinkForm = ({ onLinkCreated }) => {
         buttonText: 'Más información'
     });
     const [createdLink, setCreatedLink] = useState(null);
+    const [uploading, setUploading] = useState(false);
+    const [imagePreview, setImagePreview] = useState('');
+    const fileInputRef = useRef(null);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+        // If manually typing a URL, update preview too
+        if (e.target.name === 'imageUrl') {
+            setImagePreview(e.target.value);
+        }
+    };
+
+    const handleFileSelect = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Show local preview immediately
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            const base64 = event.target.result;
+            setImagePreview(base64);
+
+            // Upload to server -> ImgBB for public URL
+            setUploading(true);
+            try {
+                const res = await api.post('/upload-image', { image: base64 });
+                const publicUrl = res.data.display_url || res.data.url;
+                setFormData(prev => ({ ...prev, imageUrl: publicUrl }));
+                setImagePreview(publicUrl);
+            } catch (err) {
+                console.error('Error uploading image:', err);
+                alert('Error subiendo imagen. Intenta con una URL directa.');
+                setImagePreview('');
+            }
+            setUploading(false);
+        };
+        reader.readAsDataURL(file);
     };
 
     const handleSubmit = async (e) => {
@@ -27,6 +61,7 @@ const CreateLinkForm = ({ onLinkCreated }) => {
     };
 
     const trackingUrl = createdLink ? `${window.location.origin}/s/${createdLink.id}` : '';
+    const displayImage = imagePreview || formData.imageUrl;
 
     return (
         <div className="max-w-[800px] w-full flex flex-col gap-8 mx-auto">
@@ -93,8 +128,42 @@ const CreateLinkForm = ({ onLinkCreated }) => {
                                         rows="3"
                                     ></textarea>
                                 </label>
-                                <label className="flex flex-col gap-2">
-                                    <span className="text-gray-700 dark:text-slate-300 text-xs font-bold uppercase">Imagen (URL)</span>
+
+                                {/* Image: Upload file OR paste URL */}
+                                <div className="flex flex-col gap-2">
+                                    <span className="text-gray-700 dark:text-slate-300 text-xs font-bold uppercase">Imagen</span>
+
+                                    {/* File Upload Area */}
+                                    <div
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="w-full h-24 rounded-lg border-2 border-dashed border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-950 flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all"
+                                    >
+                                        {uploading ? (
+                                            <>
+                                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mb-1"></div>
+                                                <span className="text-xs text-slate-400">Subiendo imagen...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span className="material-symbols-outlined text-2xl text-slate-400">cloud_upload</span>
+                                                <span className="text-xs text-slate-400 mt-1">Haz clic para subir una imagen</span>
+                                            </>
+                                        )}
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleFileSelect}
+                                            className="hidden"
+                                        />
+                                    </div>
+
+                                    {/* OR manual URL */}
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex-1 h-px bg-gray-200 dark:bg-slate-800"></div>
+                                        <span className="text-[10px] text-slate-400 font-bold uppercase">o pega una URL</span>
+                                        <div className="flex-1 h-px bg-gray-200 dark:bg-slate-800"></div>
+                                    </div>
                                     <input
                                         name="imageUrl"
                                         value={formData.imageUrl}
@@ -103,7 +172,20 @@ const CreateLinkForm = ({ onLinkCreated }) => {
                                         placeholder="https://..."
                                         type="text"
                                     />
-                                </label>
+                                    {formData.imageUrl && formData.imageUrl.startsWith('http') && (
+                                        <p className="text-[10px] text-green-500 flex items-center gap-1">
+                                            <span className="material-symbols-outlined text-[12px]">check_circle</span>
+                                            URL pública lista para compartir en redes sociales
+                                        </p>
+                                    )}
+                                    {formData.imageUrl && formData.imageUrl.startsWith('data:') && (
+                                        <p className="text-[10px] text-amber-500 flex items-center gap-1">
+                                            <span className="material-symbols-outlined text-[12px]">warning</span>
+                                            Imagen base64 - no funcionará en redes sociales. Usa el botón de subir.
+                                        </p>
+                                    )}
+                                </div>
+
                                 <label className="flex flex-col gap-2">
                                     <span className="text-gray-700 dark:text-slate-300 text-xs font-bold uppercase">Texto del Botón (CTA)</span>
                                     <select
@@ -127,10 +209,15 @@ const CreateLinkForm = ({ onLinkCreated }) => {
                                 <span className="text-gray-500 dark:text-slate-500 text-xs font-bold uppercase tracking-wider mb-2 block">Vista Previa</span>
                                 <div className="border border-gray-200 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-slate-950 max-w-sm">
                                     <div className="h-32 bg-slate-100 dark:bg-slate-900 flex items-center justify-center relative overflow-hidden">
-                                        {formData.imageUrl ? (
-                                            <img src={formData.imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                                        {displayImage ? (
+                                            <img src={displayImage} alt="Preview" className="w-full h-full object-cover" />
                                         ) : (
                                             <span className="material-symbols-outlined text-4xl text-slate-300 dark:text-slate-700">image</span>
+                                        )}
+                                        {uploading && (
+                                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                                            </div>
                                         )}
                                     </div>
                                     <div className="p-4">
@@ -149,10 +236,11 @@ const CreateLinkForm = ({ onLinkCreated }) => {
                     <div className="px-6 py-4 bg-gray-50 dark:bg-slate-900 border-t border-gray-100 dark:border-slate-800 flex justify-end">
                         <button
                             onClick={handleSubmit}
-                            className="bg-primary hover:bg-primary/90 text-white px-6 py-2.5 rounded-lg font-bold shadow-lg shadow-primary/20 flex items-center gap-2 transition-all active:scale-95"
+                            disabled={uploading}
+                            className="bg-primary hover:bg-primary/90 text-white px-6 py-2.5 rounded-lg font-bold shadow-lg shadow-primary/20 flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <span className="material-symbols-outlined text-sm">bolt</span>
-                            Generar Enlace
+                            {uploading ? 'Subiendo imagen...' : 'Generar Enlace'}
                         </button>
                     </div>
                 </section>

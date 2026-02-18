@@ -186,16 +186,15 @@ app.get('/api/ping', (req, res) => {
     });
 });
 
-// Deep Debug Route
+// Database Schema Sync (creates/alters all tables to match models)
 app.get('/api/setup-db', async (req, res) => {
     try {
         if (!models || !models.sequelize) throw new Error('Database models not initialized (Check server logs)');
-
-        await models.sequelize.query('ALTER TABLE "Sessions" ADD COLUMN IF NOT EXISTS "active" BOOLEAN DEFAULT true;');
-        res.send('Database Updated Successfully!');
+        await models.sequelize.sync({ alter: true });
+        res.json({ message: 'Database synced successfully - all tables updated' });
     } catch (error) {
         console.error('Setup DB Error:', error);
-        res.status(200).send('SETUP ERROR: ' + error.message);
+        res.status(200).json({ error: error.message });
     }
 });
 
@@ -777,25 +776,10 @@ app.post('/api/track', async (req, res) => {
     }
 });
 
-// Setup DB
-app.get('/api/setup-db', async (req, res) => {
-    try {
-        if (!models || !models.sequelize) throw new Error('No sequelize instance');
-        await models.sequelize.sync({ alter: true });
-        res.json({ message: 'Database synced successfully' });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
 // Global Handler
 app.use((err, req, res, next) => {
     console.error('UNHANDLED ERROR:', err);
     res.status(500).json({ error: 'Fallo catastrófico', message: err.message });
 });
-
-// Database Sync Route (Fix for Vercel 500 Error on Schema Change)
-// Database Sync Route (Fix for Vercel 500 Error on Schema Change)
-
 
 module.exports = app;

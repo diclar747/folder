@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import api from '../services/api';
 
 const CreateLinkForm = ({ onLinkCreated }) => {
@@ -10,50 +10,9 @@ const CreateLinkForm = ({ onLinkCreated }) => {
         buttonText: 'Más información'
     });
     const [createdLink, setCreatedLink] = useState(null);
-    const [uploading, setUploading] = useState(false);
-    const [uploadStatus, setUploadStatus] = useState(''); // '', 'success', 'error'
-    const [imagePreview, setImagePreview] = useState('');
-    const fileInputRef = useRef(null);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
-    };
-
-    const handleFileSelect = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        // Show local preview immediately
-        const reader = new FileReader();
-        reader.onload = async (event) => {
-            const base64 = event.target.result;
-            setImagePreview(base64);
-            setUploadStatus('');
-
-            // Upload to server for public URL
-            setUploading(true);
-            try {
-                const res = await api.post('/upload-image', { image: base64 });
-                const publicUrl = res.data.display_url || res.data.url;
-                setFormData(prev => ({ ...prev, imageUrl: publicUrl }));
-                setImagePreview(publicUrl);
-                setUploadStatus('success');
-            } catch (err) {
-                console.error('Error uploading image:', err);
-                // Keep the base64 as fallback - server will try to convert on link creation
-                setFormData(prev => ({ ...prev, imageUrl: base64 }));
-                setUploadStatus('error');
-            }
-            setUploading(false);
-        };
-        reader.readAsDataURL(file);
-    };
-
-    const removeImage = () => {
-        setFormData(prev => ({ ...prev, imageUrl: '' }));
-        setImagePreview('');
-        setUploadStatus('');
-        if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
     const handleSubmit = async (e) => {
@@ -68,7 +27,6 @@ const CreateLinkForm = ({ onLinkCreated }) => {
     };
 
     const trackingUrl = createdLink ? `${window.location.origin}/s/${createdLink.id}` : '';
-    const displayImage = imagePreview || formData.imageUrl;
 
     return (
         <div className="max-w-[800px] w-full flex flex-col gap-8 mx-auto">
@@ -136,79 +94,17 @@ const CreateLinkForm = ({ onLinkCreated }) => {
                                     ></textarea>
                                 </label>
 
-                                {/* Image Upload Only */}
-                                <div className="flex flex-col gap-2">
-                                    <span className="text-gray-700 dark:text-slate-300 text-xs font-bold uppercase">Imagen</span>
-
-                                    {!displayImage ? (
-                                        /* Upload Area - shown when no image */
-                                        <div
-                                            onClick={() => fileInputRef.current?.click()}
-                                            className="w-full h-28 rounded-lg border-2 border-dashed border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-950 flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all"
-                                        >
-                                            {uploading ? (
-                                                <>
-                                                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mb-1"></div>
-                                                    <span className="text-xs text-slate-400">Subiendo imagen...</span>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <span className="material-symbols-outlined text-3xl text-slate-400">cloud_upload</span>
-                                                    <span className="text-xs text-slate-400 mt-1">Haz clic para subir una imagen</span>
-                                                    <span className="text-[10px] text-slate-500 mt-0.5">JPG, PNG, GIF</span>
-                                                </>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        /* Image Preview - shown after upload */
-                                        <div className="relative rounded-lg overflow-hidden border border-gray-200 dark:border-slate-700">
-                                            <img src={displayImage} alt="Preview" className="w-full h-28 object-cover" />
-                                            {uploading && (
-                                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-                                                </div>
-                                            )}
-                                            {/* Remove button */}
-                                            <button
-                                                type="button"
-                                                onClick={removeImage}
-                                                className="absolute top-2 right-2 bg-black/60 hover:bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center transition-colors"
-                                            >
-                                                <span className="material-symbols-outlined text-sm">close</span>
-                                            </button>
-                                            {/* Change image button */}
-                                            <button
-                                                type="button"
-                                                onClick={() => fileInputRef.current?.click()}
-                                                className="absolute bottom-2 right-2 bg-black/60 hover:bg-primary text-white rounded-lg px-2 py-1 text-[10px] font-bold flex items-center gap-1 transition-colors"
-                                            >
-                                                <span className="material-symbols-outlined text-xs">swap_horiz</span>
-                                                Cambiar
-                                            </button>
-                                            {/* Status indicator */}
-                                            {uploadStatus === 'success' && (
-                                                <div className="absolute top-2 left-2 bg-green-500/90 text-white rounded-full px-2 py-0.5 text-[10px] font-bold flex items-center gap-1">
-                                                    <span className="material-symbols-outlined text-xs">check</span>
-                                                    Lista
-                                                </div>
-                                            )}
-                                            {uploadStatus === 'error' && (
-                                                <div className="absolute top-2 left-2 bg-amber-500/90 text-white rounded-full px-2 py-0.5 text-[10px] font-bold flex items-center gap-1">
-                                                    <span className="material-symbols-outlined text-xs">info</span>
-                                                    Se procesará al crear
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
+                                <label className="flex flex-col gap-2">
+                                    <span className="text-gray-700 dark:text-slate-300 text-xs font-bold uppercase">URL de Imagen</span>
                                     <input
-                                        ref={fileInputRef}
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={handleFileSelect}
-                                        className="hidden"
+                                        name="imageUrl"
+                                        value={formData.imageUrl}
+                                        onChange={handleChange}
+                                        className="w-full h-11 px-4 rounded-lg bg-white dark:bg-slate-950 border border-gray-200 dark:border-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-slate-900 dark:text-white"
+                                        placeholder="https://..."
+                                        type="text"
                                     />
-                                </div>
+                                </label>
 
                                 <label className="flex flex-col gap-2">
                                     <span className="text-gray-700 dark:text-slate-300 text-xs font-bold uppercase">Texto del Botón (CTA)</span>
@@ -233,15 +129,10 @@ const CreateLinkForm = ({ onLinkCreated }) => {
                                 <span className="text-gray-500 dark:text-slate-500 text-xs font-bold uppercase tracking-wider mb-2 block">Vista Previa</span>
                                 <div className="border border-gray-200 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-slate-950 max-w-sm">
                                     <div className="h-32 bg-slate-100 dark:bg-slate-900 flex items-center justify-center relative overflow-hidden">
-                                        {displayImage ? (
-                                            <img src={displayImage} alt="Preview" className="w-full h-full object-cover" />
+                                        {formData.imageUrl ? (
+                                            <img src={formData.imageUrl} alt="Preview" className="w-full h-full object-cover" />
                                         ) : (
                                             <span className="material-symbols-outlined text-4xl text-slate-300 dark:text-slate-700">image</span>
-                                        )}
-                                        {uploading && (
-                                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-                                            </div>
                                         )}
                                     </div>
                                     <div className="p-4">
@@ -260,11 +151,10 @@ const CreateLinkForm = ({ onLinkCreated }) => {
                     <div className="px-6 py-4 bg-gray-50 dark:bg-slate-900 border-t border-gray-100 dark:border-slate-800 flex justify-end">
                         <button
                             onClick={handleSubmit}
-                            disabled={uploading}
-                            className="bg-primary hover:bg-primary/90 text-white px-6 py-2.5 rounded-lg font-bold shadow-lg shadow-primary/20 flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="bg-primary hover:bg-primary/90 text-white px-6 py-2.5 rounded-lg font-bold shadow-lg shadow-primary/20 flex items-center gap-2 transition-all active:scale-95"
                         >
                             <span className="material-symbols-outlined text-sm">bolt</span>
-                            {uploading ? 'Subiendo imagen...' : 'Generar Enlace'}
+                            Generar Enlace
                         </button>
                     </div>
                 </section>

@@ -357,7 +357,10 @@ const authenticateToken = (req, res, next) => {
 // Helper: Upload base64 image to ImgBB and return public URL
 const uploadBase64ToImgBB = async (base64Data) => {
     const cleanBase64 = base64Data.replace(/^data:image\/\w+;base64,/, '');
-    const IMGBB_API_KEY = process.env.IMGBB_API_KEY || '44ab9ce82c1dd8a6f1fa527dada0be59';
+    const IMGBB_API_KEY = process.env.IMGBB_API_KEY;
+    if (!IMGBB_API_KEY) {
+        throw new Error('IMGBB_API_KEY not configured. Get a free key at https://api.imgbb.com/');
+    }
     const https = require('https');
     const formBody = `key=${IMGBB_API_KEY}&image=${encodeURIComponent(cleanBase64)}`;
 

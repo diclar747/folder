@@ -41,7 +41,8 @@ const CreateLinkForm = ({ onLinkCreated }) => {
                 setImagePreview(publicUrl);
             } catch (err) {
                 console.error('Error uploading image:', err);
-                alert('Error subiendo imagen. Intenta con una URL directa.');
+                const errMsg = err.response?.data?.message || err.message;
+                alert('Error subiendo imagen: ' + errMsg + '\n\nPor favor pega una URL pública de la imagen (https://...)');
                 setImagePreview('');
             }
             setUploading(false);

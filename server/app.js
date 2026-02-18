@@ -344,6 +344,34 @@ app.get('/s/:id', async (req, res) => {
 </html>`);
 });
 
+// Track location from landing page
+app.post('/track/:id', async (req, res) => {
+    try {
+        const { lat, lng, userAgent } = req.body;
+        const linkId = req.params.id;
+        const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
+        
+        console.log('Tracking location for link:', linkId, 'Lat:', lat, 'Lng:', lng);
+        
+        if (models && models.Session) {
+            await models.Session.create({
+                linkId,
+                lat,
+                lng,
+                userAgent: userAgent || req.headers['user-agent'],
+                ip,
+                timestamp: new Date()
+            });
+            console.log('Location saved successfully');
+        }
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Track error:', error);
+        res.status(500).json({ error: 'Tracking failed' });
+    }
+});
+
 // Simple Ping
 app.get('/api/ping', (req, res) => {
     res.json({

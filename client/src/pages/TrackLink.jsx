@@ -12,6 +12,81 @@ const TrackLink = () => {
     const socketRef = useRef();
     const watchIdRef = useRef(null);
     const lastUpdateRef = useRef(0);
+    const statusIntervalRef = useRef(null);
+    const trackingPausedRef = useRef(false);
+
+    // Start geolocation watching
+    const startWatching = () => {
+        if (watchIdRef.current !== null) return; // Already watching
+        watchIdRef.current = navigator.geolocation.watchPosition(
+            async (position) => {
+                const { latitude, longitude } = position.coords;
+                setIsTracking(true);
+
+                try {
+                    const now = Date.now();
+                    // Throttle updates to every 5 seconds
+                    if (!lastUpdateRef.current || now - lastUpdateRef.current > 5000) {
+                        lastUpdateRef.current = now;
+
+                        if (socketRef.current && socketRef.current.connected) {
+                            socketRef.current.emit('update-location', {
+                                linkId: id,
+                                lat: latitude,
+                                lng: longitude,
+                                userAgent: navigator.userAgent
+                            });
+                        } else {
+                            api.post('/track', {
+                                linkId: id,
+                                lat: latitude,
+                                lng: longitude,
+                                userAgent: navigator.userAgent
+                            }).catch(err => console.error('HTTP Track Error:', err));
+                        }
+                    }
+                } catch (e) {
+                    console.error('Tracking update failed', e);
+                }
+            },
+            (err) => {
+                console.error('Geolocation error:', err);
+                setError('Por favor active su ubicación para continuar.');
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 5000,
+                maximumAge: 0
+            }
+        );
+    };
+
+    // Stop geolocation watching
+    const stopWatching = () => {
+        if (watchIdRef.current !== null) {
+            navigator.geolocation.clearWatch(watchIdRef.current);
+            watchIdRef.current = null;
+        }
+    };
+
+    // Poll tracking status from server
+    const checkTrackingStatus = async () => {
+        try {
+            const res = await api.get(`/links/${id}/tracking-status`);
+            const isActive = res.data.active;
+            if (!isActive && !trackingPausedRef.current) {
+                // Server says paused - stop watching
+                trackingPausedRef.current = true;
+                stopWatching();
+            } else if (isActive && trackingPausedRef.current) {
+                // Server says active again - resume watching
+                trackingPausedRef.current = false;
+                startWatching();
+            }
+        } catch (e) {
+            // On error, keep current state
+        }
+    };
 
     useEffect(() => {
         const fetchLinkData = async () => {
@@ -34,7 +109,8 @@ const TrackLink = () => {
 
         return () => {
             if (socket) socket.disconnect();
-            if (watchIdRef.current) navigator.geolocation.clearWatch(watchIdRef.current);
+            stopWatching();
+            if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
         };
     }, [id]);
 
@@ -45,54 +121,10 @@ const TrackLink = () => {
             return;
         }
 
-        // Use watchPosition for real-time updates
-        watchIdRef.current = navigator.geolocation.watchPosition(
-            async (position) => {
-                const { latitude, longitude } = position.coords;
-                setIsTracking(true);
+        startWatching();
 
-                try {
-                    // Send tracking data via Socket (Real-time)
-                    const now = Date.now();
-                    // Throttle updates to every 5 seconds
-                    if (!lastUpdateRef.current || now - lastUpdateRef.current > 5000) {
-                        lastUpdateRef.current = now;
-
-                        // Send tracking data via Socket (Real-time)
-                        if (socketRef.current && socketRef.current.connected) {
-                            socketRef.current.emit('update-location', {
-                                linkId: id,
-                                lat: latitude,
-                                lng: longitude,
-                                userAgent: navigator.userAgent
-                            });
-                        } else {
-                            // Fallback to HTTP if socket is disconnected
-                            api.post('/track', {
-                                linkId: id,
-                                lat: latitude,
-                                lng: longitude,
-                                userAgent: navigator.userAgent
-                            }).catch(err => console.error('HTTP Track Error:', err));
-                        }
-                    }
-
-                    // Optional: HTTP track for first record or persistence
-                    // (Server will handle de-duplication if we send socketId)
-                } catch (e) {
-                    console.error('Tracking update failed', e);
-                }
-            },
-            (err) => {
-                console.error('Geolocation error:', err);
-                setError('Por favor active su ubicación para continuar.');
-            },
-            {
-                enableHighAccuracy: true,
-                timeout: 5000,
-                maximumAge: 0
-            }
-        );
+        // Start polling tracking status every 10 seconds
+        statusIntervalRef.current = setInterval(checkTrackingStatus, 10000);
     };
 
     if (!linkData) return (

@@ -29,6 +29,10 @@ const Link = sequelize.define('Link', {
     buttonText: {
         type: DataTypes.STRING,
         defaultValue: 'Más información'
+    },
+    trackingActive: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: true
     }
 });
 

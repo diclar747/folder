@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { GoogleMap, useLoadScript, Marker, InfoWindow } from '@react-google-maps/api';
+import { GoogleMap, useLoadScript, Marker, InfoWindow, Polyline } from '@react-google-maps/api';
 import { io } from 'socket.io-client';
 import api from '../services/api';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
@@ -61,16 +61,42 @@ const UserDashboard = () => {
     const lastAlertRef = useRef(null);
     const [pausedLinks, setPausedLinks] = useState(new Set());
     const pausedLinksRef = useRef(new Set());
+    const [historyModal, setHistoryModal] = useState(null); // { linkId, linkTitle }
+    const [historyData, setHistoryData] = useState([]);
+    const [historyDates, setHistoryDates] = useState([]);
+    const [historyDateFrom, setHistoryDateFrom] = useState('');
+    const [historyDateTo, setHistoryDateTo] = useState('');
+    const [historyLoading, setHistoryLoading] = useState(false);
 
-    const togglePause = (id) => {
-        setPausedLinks(prev => {
-            const next = new Set(prev);
-            if (next.has(id)) next.delete(id);
-            else next.add(id);
+    const togglePause = async (id) => {
+        try {
+            const res = await api.put(`/links/${id}/tracking`);
+            const isNowActive = res.data.trackingActive;
+            setPausedLinks(prev => {
+                const next = new Set(prev);
+                if (isNowActive) {
+                    next.delete(id);
+                } else {
+                    next.add(id);
+                }
+                pausedLinksRef.current = next;
+                return next;
+            });
+        } catch (e) {
+            console.error('Error toggling tracking:', e);
+        }
+    };
 
-            pausedLinksRef.current = next;
-            return next;
-        });
+    // Load initial tracking states from server
+    const loadTrackingStates = async (linksList) => {
+        const paused = new Set();
+        for (const link of linksList) {
+            if (link.trackingActive === false) {
+                paused.add(link.id);
+            }
+        }
+        setPausedLinks(paused);
+        pausedLinksRef.current = paused;
     };
 
     const playNotificationSound = () => {
@@ -159,6 +185,9 @@ const UserDashboard = () => {
             setLinks(linksRes.data);
             setSessions(sessionsRes.data);
             setUserProfile(profileRes.data);
+
+            // Load tracking active/paused states from links
+            loadTrackingStates(linksRes.data);
 
             // Init ref to avoid initial beep
             if (sessionsRes.data.length > 0) {
@@ -252,6 +281,58 @@ const UserDashboard = () => {
             fetchData();
         } catch (e) {
             alert('Error actualizando enlace: ' + (e.response?.data?.message || e.message));
+        }
+    };
+
+    const openHistory = async (linkId, linkTitle) => {
+        setHistoryModal({ linkId, linkTitle });
+        setHistoryData([]);
+        setHistoryDates([]);
+        setHistoryDateFrom('');
+        setHistoryDateTo('');
+        try {
+            const datesRes = await api.get(`/links/${linkId}/history/dates`);
+            setHistoryDates(datesRes.data);
+            // Auto-load today's data if available
+            const today = new Date().toISOString().split('T')[0];
+            const hasToday = datesRes.data.some(d => d.date === today);
+            if (hasToday) {
+                setHistoryDateFrom(today);
+                setHistoryDateTo(today);
+                fetchHistory(linkId, today, today);
+            } else if (datesRes.data.length > 0) {
+                const latestDate = datesRes.data[0].date;
+                setHistoryDateFrom(latestDate);
+                setHistoryDateTo(latestDate);
+                fetchHistory(linkId, latestDate, latestDate);
+            }
+        } catch (e) {
+            console.error('Error loading history dates:', e);
+        }
+    };
+
+    const fetchHistory = async (linkId, from, to) => {
+        setHistoryLoading(true);
+        try {
+            const params = {};
+            if (from) params.from = new Date(from).toISOString();
+            if (to) {
+                // Set end of day for the 'to' date
+                const toDate = new Date(to);
+                toDate.setHours(23, 59, 59, 999);
+                params.to = toDate.toISOString();
+            }
+            const res = await api.get(`/links/${linkId}/history`, { params });
+            setHistoryData(res.data);
+        } catch (e) {
+            console.error('Error fetching history:', e);
+        }
+        setHistoryLoading(false);
+    };
+
+    const handleHistoryFilter = () => {
+        if (historyModal) {
+            fetchHistory(historyModal.linkId, historyDateFrom, historyDateTo);
         }
     };
 
@@ -580,6 +661,7 @@ const UserDashboard = () => {
                                                         <span className="material-symbols-outlined text-[20px]">map</span>
                                                     </button>
                                                     <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/s/${link.id}`)} className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Copiar Enlace"><span className="material-symbols-outlined text-[20px]">content_copy</span></button>
+                                                    <button onClick={() => openHistory(link.id, link.title)} className="p-2 text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/10 rounded-lg transition-colors" title="Ver Historial"><span className="material-symbols-outlined text-[20px]">history</span></button>
                                                     <button onClick={() => handleClearLinkHistory(link.id)} className="p-2 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/10 rounded-lg transition-colors" title="Limpiar Historial"><span className="material-symbols-outlined text-[20px]">cleaning_services</span></button>
                                                     <button onClick={() => setEditingLink({ ...link })} className="p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"><span className="material-symbols-outlined text-[20px]">edit</span></button>
                                                     <button onClick={() => handleDeleteLink(link.id)} className="p-2 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-colors"><span className="material-symbols-outlined text-[20px]">delete</span></button>
@@ -604,6 +686,13 @@ const UserDashboard = () => {
                                         </div>
                                     </div>
                                     <div className="flex items-center justify-between gap-1 pt-3 border-t border-slate-200 dark:border-slate-700">
+                                        <button
+                                            onClick={() => togglePause(link.id)}
+                                            className={`flex flex-col items-center gap-1 p-2 rounded-lg flex-1 ${pausedLinks.has(link.id) ? 'text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20' : 'text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20'}`}
+                                        >
+                                            <span className="material-symbols-outlined text-[20px]">{pausedLinks.has(link.id) ? 'play_arrow' : 'pause'}</span>
+                                            <span className="text-[9px] font-bold">{pausedLinks.has(link.id) ? 'Reanudar' : 'Pausar'}</span>
+                                        </button>
                                         <button onClick={() => setActiveTab('map')} className="flex flex-col items-center gap-1 p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg flex-1">
                                             <span className="material-symbols-outlined text-[20px]">map</span>
                                             <span className="text-[9px] font-bold">Mapa</span>
@@ -612,9 +701,9 @@ const UserDashboard = () => {
                                             <span className="material-symbols-outlined text-[20px]">content_copy</span>
                                             <span className="text-[9px] font-bold">Copiar</span>
                                         </button>
-                                        <button onClick={() => handleClearLinkHistory(link.id)} className="flex flex-col items-center gap-1 p-2 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg flex-1">
-                                            <span className="material-symbols-outlined text-[20px]">cleaning_services</span>
-                                            <span className="text-[9px] font-bold">Limpiar</span>
+                                        <button onClick={() => openHistory(link.id, link.title)} className="flex flex-col items-center gap-1 p-2 text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg flex-1">
+                                            <span className="material-symbols-outlined text-[20px]">history</span>
+                                            <span className="text-[9px] font-bold">Historial</span>
                                         </button>
                                         <button onClick={() => setEditingLink({ ...link })} className="flex flex-col items-center gap-1 p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg flex-1">
                                             <span className="material-symbols-outlined text-[20px]">edit</span>
@@ -723,6 +812,174 @@ const UserDashboard = () => {
                                 >
                                     Borrar Todo
                                 </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Location History Modal */}
+            {historyModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+                        {/* Header */}
+                        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
+                            <div className="flex items-center gap-3">
+                                <span className="material-symbols-outlined text-purple-500">history</span>
+                                <div>
+                                    <h3 className="text-lg font-bold dark:text-white">Historial de Recorrido</h3>
+                                    <p className="text-xs text-slate-500">{historyModal.linkTitle}</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setHistoryModal(null)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-500">
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+
+                        {/* Date Filter */}
+                        <div className="px-6 py-3 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-3 shrink-0">
+                            <div className="flex items-center gap-2">
+                                <label className="text-xs font-bold text-slate-500 uppercase">Desde</label>
+                                <input
+                                    type="date"
+                                    value={historyDateFrom}
+                                    onChange={(e) => setHistoryDateFrom(e.target.value)}
+                                    className="h-9 px-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white outline-none"
+                                />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <label className="text-xs font-bold text-slate-500 uppercase">Hasta</label>
+                                <input
+                                    type="date"
+                                    value={historyDateTo}
+                                    onChange={(e) => setHistoryDateTo(e.target.value)}
+                                    className="h-9 px-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white outline-none"
+                                />
+                            </div>
+                            <button
+                                onClick={handleHistoryFilter}
+                                className="h-9 px-4 bg-purple-600 text-white text-sm font-bold rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-1"
+                            >
+                                <span className="material-symbols-outlined text-sm">search</span>
+                                Buscar
+                            </button>
+                            <span className="text-xs text-slate-400 ml-auto">
+                                {historyData.length} puntos encontrados
+                            </span>
+                        </div>
+
+                        {/* Available Dates Quick Select */}
+                        {historyDates.length > 0 && (
+                            <div className="px-6 py-2 border-b border-slate-100 dark:border-slate-800 flex gap-2 overflow-x-auto shrink-0">
+                                <span className="text-xs text-slate-400 font-bold shrink-0 py-1">Fechas:</span>
+                                {historyDates.slice(0, 10).map(d => (
+                                    <button
+                                        key={d.date}
+                                        onClick={() => {
+                                            setHistoryDateFrom(d.date);
+                                            setHistoryDateTo(d.date);
+                                            fetchHistory(historyModal.linkId, d.date, d.date);
+                                        }}
+                                        className={`shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-colors ${
+                                            historyDateFrom === d.date
+                                                ? 'bg-purple-600 text-white'
+                                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-purple-100 dark:hover:bg-purple-900/20'
+                                        }`}
+                                    >
+                                        {new Date(d.date + 'T12:00:00').toLocaleDateString('es', { day: 'numeric', month: 'short' })} ({d.count})
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Content: Map + List */}
+                        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+                            {/* Map */}
+                            <div className="flex-1 min-h-[300px] relative">
+                                {historyLoading && (
+                                    <div className="absolute inset-0 z-10 bg-black/30 flex items-center justify-center">
+                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+                                    </div>
+                                )}
+                                {isLoaded && (
+                                    <GoogleMap
+                                        mapContainerStyle={{ width: '100%', height: '100%' }}
+                                        zoom={historyData.length > 0 ? 14 : 2}
+                                        center={historyData.length > 0 ? { lat: historyData[0].lat, lng: historyData[0].lng } : center}
+                                        options={mapOptions}
+                                    >
+                                        {/* Route Polyline */}
+                                        {historyData.length > 1 && (
+                                            <Polyline
+                                                path={historyData.map(p => ({ lat: p.lat, lng: p.lng }))}
+                                                options={{
+                                                    strokeColor: '#8b5cf6',
+                                                    strokeOpacity: 0.8,
+                                                    strokeWeight: 3,
+                                                }}
+                                            />
+                                        )}
+                                        {/* Start Marker */}
+                                        {historyData.length > 0 && (
+                                            <Marker
+                                                position={{ lat: historyData[0].lat, lng: historyData[0].lng }}
+                                                icon={{
+                                                    path: window.google?.maps?.SymbolPath?.CIRCLE,
+                                                    scale: 8,
+                                                    fillColor: '#22c55e',
+                                                    fillOpacity: 1,
+                                                    strokeColor: '#ffffff',
+                                                    strokeWeight: 2,
+                                                }}
+                                                title="Inicio"
+                                            />
+                                        )}
+                                        {/* End Marker */}
+                                        {historyData.length > 1 && (
+                                            <Marker
+                                                position={{ lat: historyData[historyData.length - 1].lat, lng: historyData[historyData.length - 1].lng }}
+                                                icon={{
+                                                    path: window.google?.maps?.SymbolPath?.CIRCLE,
+                                                    scale: 8,
+                                                    fillColor: '#ef4444',
+                                                    fillOpacity: 1,
+                                                    strokeColor: '#ffffff',
+                                                    strokeWeight: 2,
+                                                }}
+                                                title="Fin"
+                                            />
+                                        )}
+                                    </GoogleMap>
+                                )}
+                            </div>
+
+                            {/* Timeline List */}
+                            <div className="w-full md:w-72 border-t md:border-t-0 md:border-l border-slate-100 dark:border-slate-800 overflow-y-auto max-h-[250px] md:max-h-full">
+                                <div className="p-3">
+                                    <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Puntos del recorrido</h4>
+                                    {historyData.length === 0 && !historyLoading && (
+                                        <p className="text-xs text-slate-400 italic py-4 text-center">No hay datos para esta fecha</p>
+                                    )}
+                                    <div className="space-y-1">
+                                        {historyData.map((point, idx) => (
+                                            <div
+                                                key={point.id}
+                                                className="flex items-start gap-2 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors"
+                                                title={`${point.lat.toFixed(6)}, ${point.lng.toFixed(6)}`}
+                                            >
+                                                <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${idx === 0 ? 'bg-green-500' : idx === historyData.length - 1 ? 'bg-red-500' : 'bg-purple-500'}`}></div>
+                                                <div className="min-w-0">
+                                                    <p className="text-[11px] font-mono text-slate-600 dark:text-slate-300 truncate">
+                                                        {point.lat.toFixed(5)}, {point.lng.toFixed(5)}
+                                                    </p>
+                                                    <p className="text-[10px] text-slate-400">
+                                                        {new Date(point.timestamp).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

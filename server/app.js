@@ -82,18 +82,26 @@ const generateOgHtml = (title, description, image, fullUrl) => {
     <meta name="twitter:image" content="${image}">`;
 };
 
+// Helper: Validate image URL for OG tags (must be a public https/http URL, not base64)
+const isValidOgImageUrl = (url) => {
+    if (!url) return false;
+    return url.startsWith('http://') || url.startsWith('https://');
+};
+
 // Helper: Fetch link metadata from database
 const fetchLinkMeta = async (id) => {
     let title = 'GeoRastreador';
     let description = 'Comparte tu ubicación en tiempo real.';
-    let image = 'https://cdn-icons-png.flaticon.com/512/854/854878.png';
+    const defaultImage = 'https://cdn-icons-png.flaticon.com/512/854/854878.png';
+    let image = defaultImage;
     try {
         if (models && models.Link) {
             const link = await models.Link.findByPk(id);
             if (link) {
                 title = link.title || title;
                 description = link.description || description;
-                image = link.imageUrl || image;
+                // Only use imageUrl if it's a valid public URL (not base64/data URIs)
+                image = isValidOgImageUrl(link.imageUrl) ? link.imageUrl : defaultImage;
             }
         }
     } catch (e) {

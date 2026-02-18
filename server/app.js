@@ -237,9 +237,13 @@ app.get('/api/migrate-images', async (req, res) => {
         for (const link of links) {
             if (link.imageUrl && link.imageUrl.startsWith('data:image/')) {
                 try {
-                    const publicUrl = await uploadBase64ToImgBB(link.imageUrl);
-                    await link.update({ imageUrl: publicUrl });
-                    results.push({ id: link.id, status: 'converted', url: publicUrl });
+                    const publicUrl = await ensurePublicImageUrl(link.imageUrl);
+                    if (publicUrl && publicUrl.startsWith('http')) {
+                        await link.update({ imageUrl: publicUrl });
+                        results.push({ id: link.id, status: 'converted', url: publicUrl });
+                    } else {
+                        results.push({ id: link.id, status: 'failed', error: 'Conversion returned non-URL' });
+                    }
                 } catch (e) {
                     results.push({ id: link.id, status: 'failed', error: e.message });
                 }
@@ -380,10 +384,12 @@ const uploadBase64ToImgBB = async (base64Data) => {
                     if (result.success) {
                         resolve(result.data.display_url || result.data.url);
                     } else {
-                        reject(new Error('ImgBB upload failed'));
+                        console.error('ImgBB error response:', JSON.stringify(result));
+                        reject(new Error('ImgBB upload failed: ' + JSON.stringify(result.error || result)));
                     }
                 } catch (e) {
-                    reject(new Error('Failed to parse ImgBB response'));
+                    console.error('ImgBB raw response:', data.substring(0, 500));
+                    reject(new Error('Failed to parse ImgBB response: ' + data.substring(0, 200)));
                 }
             });
         });

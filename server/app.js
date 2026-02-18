@@ -237,7 +237,7 @@ app.get('/api/migrate-images', async (req, res) => {
         for (const link of links) {
             if (link.imageUrl && link.imageUrl.startsWith('data:image/')) {
                 try {
-                    const publicUrl = await uploadBase64ToImgBB(link.imageUrl);
+                    const publicUrl = await uploadBase64Image(link.imageUrl);
                     await link.update({ imageUrl: publicUrl });
                     results.push({ id: link.id, status: 'converted', url: publicUrl });
                 } catch (e) {
@@ -354,57 +354,98 @@ const authenticateToken = (req, res, next) => {
 
 // --- LINK & USER ROUTES (Restored) ---
 
-// Helper: Upload base64 image to ImgBB and return public URL
-const uploadBase64ToImgBB = async (base64Data) => {
-    const cleanBase64 = base64Data.replace(/^data:image\/\w+;base64,/, '');
-    const IMGBB_API_KEY = process.env.IMGBB_API_KEY;
-    if (!IMGBB_API_KEY) {
-        throw new Error('IMGBB_API_KEY not configured. Get a free key at https://api.imgbb.com/');
-    }
+// Helper: Upload base64 image to a free image host and return public URL
+const uploadBase64Image = async (base64Data) => {
     const https = require('https');
-    const formBody = `key=${IMGBB_API_KEY}&image=${encodeURIComponent(cleanBase64)}`;
+    const http = require('http');
 
-    return new Promise((resolve, reject) => {
-        const options = {
-            hostname: 'api.imgbb.com',
-            path: '/1/upload',
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'Content-Length': Buffer.byteLength(formBody)
-            }
-        };
-        const request = https.request(options, (response) => {
-            let data = '';
-            response.on('data', chunk => data += chunk);
-            response.on('end', () => {
-                try {
-                    const result = JSON.parse(data);
-                    if (result.success) {
-                        resolve(result.data.display_url || result.data.url);
-                    } else {
-                        console.error('ImgBB error response:', JSON.stringify(result));
-                        reject(new Error('ImgBB upload failed: ' + JSON.stringify(result.error || result)));
-                    }
-                } catch (e) {
-                    console.error('ImgBB raw response:', data.substring(0, 500));
-                    reject(new Error('Failed to parse ImgBB response: ' + data.substring(0, 200)));
-                }
+    // Extract mime type and clean base64
+    const mimeMatch = base64Data.match(/^data:(image\/\w+);base64,/);
+    const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+    const ext = mimeType.split('/')[1] || 'jpg';
+    const cleanBase64 = base64Data.replace(/^data:image\/\w+;base64,/, '');
+    const imageBuffer = Buffer.from(cleanBase64, 'base64');
+
+    // Try ImgBB first if API key is available
+    if (process.env.IMGBB_API_KEY) {
+        try {
+            const formBody = `key=${process.env.IMGBB_API_KEY}&image=${encodeURIComponent(cleanBase64)}`;
+            const url = await new Promise((resolve, reject) => {
+                const req = https.request({
+                    hostname: 'api.imgbb.com', path: '/1/upload', method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(formBody) }
+                }, (res) => {
+                    let d = ''; res.on('data', c => d += c);
+                    res.on('end', () => { try { const r = JSON.parse(d); r.success ? resolve(r.data.display_url || r.data.url) : reject(new Error('ImgBB fail')); } catch(e) { reject(e); } });
+                });
+                req.on('error', reject); req.write(formBody); req.end();
             });
+            return url;
+        } catch (e) { console.log('ImgBB failed, trying fallback...', e.message); }
+    }
+
+    // Fallback: Use freeimage.host (no API key needed, ImgBB compatible API)
+    try {
+        const formBody = `key=6d207e02198a847aa98d0a2a901485a5&image=${encodeURIComponent(cleanBase64)}`;
+        const url = await new Promise((resolve, reject) => {
+            const req = https.request({
+                hostname: 'freeimage.host', path: '/api/1/upload', method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(formBody) }
+            }, (res) => {
+                let d = ''; res.on('data', c => d += c);
+                res.on('end', () => {
+                    try {
+                        const r = JSON.parse(d);
+                        if (r.success || r.status_code === 200) {
+                            resolve(r.image?.display_url || r.image?.url || r.data?.display_url || r.data?.url);
+                        } else { reject(new Error('freeimage.host fail: ' + JSON.stringify(r).substring(0, 200))); }
+                    } catch(e) { reject(new Error('Parse error: ' + d.substring(0, 200))); }
+                });
+            });
+            req.on('error', reject); req.write(formBody); req.end();
         });
-        request.on('error', reject);
-        request.write(formBody);
-        request.end();
-    });
+        if (url) return url;
+    } catch (e) { console.log('freeimage.host failed, trying next...', e.message); }
+
+    // Fallback 2: Use tmpfiles.org (simple, no key needed)
+    try {
+        const boundary = '----FormBoundary' + Math.random().toString(36).substr(2);
+        const body = Buffer.concat([
+            Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="image.${ext}"\r\nContent-Type: ${mimeType}\r\n\r\n`),
+            imageBuffer,
+            Buffer.from(`\r\n--${boundary}--\r\n`)
+        ]);
+        const url = await new Promise((resolve, reject) => {
+            const req = https.request({
+                hostname: 'tmpfiles.org', path: '/api/v1/upload', method: 'POST',
+                headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}`, 'Content-Length': body.length }
+            }, (res) => {
+                let d = ''; res.on('data', c => d += c);
+                res.on('end', () => {
+                    try {
+                        const r = JSON.parse(d);
+                        if (r.data?.url) {
+                            // Convert tmpfiles.org URL to direct link
+                            resolve(r.data.url.replace('tmpfiles.org/', 'tmpfiles.org/dl/'));
+                        } else { reject(new Error('tmpfiles fail')); }
+                    } catch(e) { reject(new Error('Parse error')); }
+                });
+            });
+            req.on('error', reject); req.write(body); req.end();
+        });
+        if (url) return url;
+    } catch (e) { console.log('tmpfiles.org failed too:', e.message); }
+
+    throw new Error('No se pudo subir la imagen. Todos los servicios fallaron.');
 };
 
-// Helper: If imageUrl is base64, upload to ImgBB. If it's a URL, keep as-is.
+// Helper: If imageUrl is base64, upload to public host. If it's a URL, keep as-is.
 const ensurePublicImageUrl = async (imageUrl) => {
     if (!imageUrl) return imageUrl;
     if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) return imageUrl;
     if (imageUrl.startsWith('data:image/')) {
         try {
-            return await uploadBase64ToImgBB(imageUrl);
+            return await uploadBase64Image(imageUrl);
         } catch (e) {
             console.error('Auto-upload failed:', e.message);
             return null; // Will use default fallback
@@ -765,17 +806,17 @@ app.put('/api/user/profile', authenticateToken, async (req, res) => {
     }
 });
 
-// Upload Image (converts base64 to public URL via ImgBB)
+// Upload Image (converts base64 to public URL)
 app.post('/api/upload-image', authenticateToken, async (req, res) => {
     try {
         const { image } = req.body;
         if (!image) return res.status(400).json({ message: 'No image provided' });
 
-        const publicUrl = await uploadBase64ToImgBB(image);
+        const publicUrl = await uploadBase64Image(image);
         res.json({ url: publicUrl, display_url: publicUrl });
     } catch (error) {
         console.error('Image Upload Error:', error);
-        res.status(500).json({ message: 'Error uploading image: ' + error.message });
+        res.status(500).json({ message: 'Error subiendo imagen: ' + error.message });
     }
 });
 

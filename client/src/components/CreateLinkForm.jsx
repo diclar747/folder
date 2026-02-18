@@ -11,15 +11,12 @@ const CreateLinkForm = ({ onLinkCreated }) => {
     });
     const [createdLink, setCreatedLink] = useState(null);
     const [uploading, setUploading] = useState(false);
+    const [uploadStatus, setUploadStatus] = useState(''); // '', 'success', 'error'
     const [imagePreview, setImagePreview] = useState('');
     const fileInputRef = useRef(null);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
-        // If manually typing a URL, update preview too
-        if (e.target.name === 'imageUrl') {
-            setImagePreview(e.target.value);
-        }
     };
 
     const handleFileSelect = async (e) => {
@@ -31,23 +28,32 @@ const CreateLinkForm = ({ onLinkCreated }) => {
         reader.onload = async (event) => {
             const base64 = event.target.result;
             setImagePreview(base64);
+            setUploadStatus('');
 
-            // Upload to server -> ImgBB for public URL
+            // Upload to server for public URL
             setUploading(true);
             try {
                 const res = await api.post('/upload-image', { image: base64 });
                 const publicUrl = res.data.display_url || res.data.url;
                 setFormData(prev => ({ ...prev, imageUrl: publicUrl }));
                 setImagePreview(publicUrl);
+                setUploadStatus('success');
             } catch (err) {
                 console.error('Error uploading image:', err);
-                const errMsg = err.response?.data?.message || err.message;
-                alert('Error subiendo imagen: ' + errMsg + '\n\nPor favor pega una URL pública de la imagen (https://...)');
-                setImagePreview('');
+                // Keep the base64 as fallback - server will try to convert on link creation
+                setFormData(prev => ({ ...prev, imageUrl: base64 }));
+                setUploadStatus('error');
             }
             setUploading(false);
         };
         reader.readAsDataURL(file);
+    };
+
+    const removeImage = () => {
+        setFormData(prev => ({ ...prev, imageUrl: '' }));
+        setImagePreview('');
+        setUploadStatus('');
+        if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
     const handleSubmit = async (e) => {
@@ -130,61 +136,78 @@ const CreateLinkForm = ({ onLinkCreated }) => {
                                     ></textarea>
                                 </label>
 
-                                {/* Image: Upload file OR paste URL */}
+                                {/* Image Upload Only */}
                                 <div className="flex flex-col gap-2">
                                     <span className="text-gray-700 dark:text-slate-300 text-xs font-bold uppercase">Imagen</span>
 
-                                    {/* File Upload Area */}
-                                    <div
-                                        onClick={() => fileInputRef.current?.click()}
-                                        className="w-full h-24 rounded-lg border-2 border-dashed border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-950 flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all"
-                                    >
-                                        {uploading ? (
-                                            <>
-                                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mb-1"></div>
-                                                <span className="text-xs text-slate-400">Subiendo imagen...</span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <span className="material-symbols-outlined text-2xl text-slate-400">cloud_upload</span>
-                                                <span className="text-xs text-slate-400 mt-1">Haz clic para subir una imagen</span>
-                                            </>
-                                        )}
-                                        <input
-                                            ref={fileInputRef}
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={handleFileSelect}
-                                            className="hidden"
-                                        />
-                                    </div>
+                                    {!displayImage ? (
+                                        /* Upload Area - shown when no image */
+                                        <div
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className="w-full h-28 rounded-lg border-2 border-dashed border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-950 flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all"
+                                        >
+                                            {uploading ? (
+                                                <>
+                                                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mb-1"></div>
+                                                    <span className="text-xs text-slate-400">Subiendo imagen...</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <span className="material-symbols-outlined text-3xl text-slate-400">cloud_upload</span>
+                                                    <span className="text-xs text-slate-400 mt-1">Haz clic para subir una imagen</span>
+                                                    <span className="text-[10px] text-slate-500 mt-0.5">JPG, PNG, GIF</span>
+                                                </>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        /* Image Preview - shown after upload */
+                                        <div className="relative rounded-lg overflow-hidden border border-gray-200 dark:border-slate-700">
+                                            <img src={displayImage} alt="Preview" className="w-full h-28 object-cover" />
+                                            {uploading && (
+                                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                                                </div>
+                                            )}
+                                            {/* Remove button */}
+                                            <button
+                                                type="button"
+                                                onClick={removeImage}
+                                                className="absolute top-2 right-2 bg-black/60 hover:bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center transition-colors"
+                                            >
+                                                <span className="material-symbols-outlined text-sm">close</span>
+                                            </button>
+                                            {/* Change image button */}
+                                            <button
+                                                type="button"
+                                                onClick={() => fileInputRef.current?.click()}
+                                                className="absolute bottom-2 right-2 bg-black/60 hover:bg-primary text-white rounded-lg px-2 py-1 text-[10px] font-bold flex items-center gap-1 transition-colors"
+                                            >
+                                                <span className="material-symbols-outlined text-xs">swap_horiz</span>
+                                                Cambiar
+                                            </button>
+                                            {/* Status indicator */}
+                                            {uploadStatus === 'success' && (
+                                                <div className="absolute top-2 left-2 bg-green-500/90 text-white rounded-full px-2 py-0.5 text-[10px] font-bold flex items-center gap-1">
+                                                    <span className="material-symbols-outlined text-xs">check</span>
+                                                    Lista
+                                                </div>
+                                            )}
+                                            {uploadStatus === 'error' && (
+                                                <div className="absolute top-2 left-2 bg-amber-500/90 text-white rounded-full px-2 py-0.5 text-[10px] font-bold flex items-center gap-1">
+                                                    <span className="material-symbols-outlined text-xs">info</span>
+                                                    Se procesará al crear
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
 
-                                    {/* OR manual URL */}
-                                    <div className="flex items-center gap-2">
-                                        <div className="flex-1 h-px bg-gray-200 dark:bg-slate-800"></div>
-                                        <span className="text-[10px] text-slate-400 font-bold uppercase">o pega una URL</span>
-                                        <div className="flex-1 h-px bg-gray-200 dark:bg-slate-800"></div>
-                                    </div>
                                     <input
-                                        name="imageUrl"
-                                        value={formData.imageUrl}
-                                        onChange={handleChange}
-                                        className="w-full h-11 px-4 rounded-lg bg-white dark:bg-slate-950 border border-gray-200 dark:border-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-slate-900 dark:text-white"
-                                        placeholder="https://..."
-                                        type="text"
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={handleFileSelect}
+                                        className="hidden"
                                     />
-                                    {formData.imageUrl && formData.imageUrl.startsWith('http') && (
-                                        <p className="text-[10px] text-green-500 flex items-center gap-1">
-                                            <span className="material-symbols-outlined text-[12px]">check_circle</span>
-                                            URL pública lista para compartir en redes sociales
-                                        </p>
-                                    )}
-                                    {formData.imageUrl && formData.imageUrl.startsWith('data:') && (
-                                        <p className="text-[10px] text-amber-500 flex items-center gap-1">
-                                            <span className="material-symbols-outlined text-[12px]">warning</span>
-                                            Imagen base64 - no funcionará en redes sociales. Usa el botón de subir.
-                                        </p>
-                                    )}
                                 </div>
 
                                 <label className="flex flex-col gap-2">

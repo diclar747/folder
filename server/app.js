@@ -123,16 +123,25 @@ const fetchLinkData = async (id) => {
         if (models && models.Link) {
             const link = await models.Link.findByPk(id);
             if (link) {
-                console.log('Link found:', link.id, 'Image:', link.imageUrl);
+                console.log('Link found:', link.id, 'Raw imageUrl:', link.imageUrl);
                 title = link.title || title;
                 description = link.description || description;
-                // Use image from link if it exists and is not empty
-                if (link.imageUrl && link.imageUrl.trim() !== '') {
-                    image = link.imageUrl.trim();
-                    console.log('Using custom image:', image);
+                
+                // Validate image URL - must be a public http/https URL, not base64
+                const imgUrl = link.imageUrl ? link.imageUrl.trim() : '';
+                if (imgUrl && imgUrl.startsWith('http') && !imgUrl.startsWith('data:')) {
+                    image = imgUrl;
+                    console.log('✅ Using valid public image URL:', image);
+                } else if (imgUrl && imgUrl.startsWith('data:')) {
+                    console.log('❌ Image is base64, using default. Image must be a public URL (https://...)');
+                    image = defaultImage;
+                } else if (imgUrl) {
+                    console.log('❌ Invalid image URL format:', imgUrl);
+                    image = defaultImage;
                 } else {
-                    console.log('Using default image');
+                    console.log('ℹ️ No image configured, using default');
                 }
+                
                 destinationUrl = link.destinationUrl || '#';
                 buttonText = link.buttonText || 'Más información';
             } else {

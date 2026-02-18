@@ -100,11 +100,25 @@ const CreateLinkForm = ({ onLinkCreated }) => {
                                     <input
                                         name="imageUrl"
                                         value={formData.imageUrl}
-                                        onChange={handleChange}
+                                        onChange={(e) => {
+                                            const value = e.target.value;
+                                            // Reject base64 images
+                                            if (value.startsWith('data:image/')) {
+                                                alert('❌ No se permiten imágenes en base64.\n\nPor favor usa una URL pública de imagen (https://...).\n\nPuedes subir tu imagen a:\n• imgur.com\n• postimages.org\n• Google Drive (con enlace público)\n• O cualquier hosting de imágenes');
+                                                return;
+                                            }
+                                            handleChange(e);
+                                        }}
                                         className="w-full h-11 px-4 rounded-lg bg-white dark:bg-slate-950 border border-gray-200 dark:border-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-slate-900 dark:text-white"
                                         placeholder="https://ejemplo.com/imagen.jpg"
                                         type="text"
                                     />
+                                    {formData.imageUrl && formData.imageUrl.startsWith('data:') && (
+                                        <p className="text-xs text-red-500">❌ Imagen base64 no válida. Usa una URL https://</p>
+                                    )}
+                                    {formData.imageUrl && !formData.imageUrl.startsWith('http') && (
+                                        <p className="text-xs text-amber-500">⚠️ Debe ser una URL completa que empiece con https://</p>
+                                    )}
                                 </label>
 
                                 <label className="flex flex-col gap-2">

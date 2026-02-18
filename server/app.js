@@ -237,13 +237,9 @@ app.get('/api/migrate-images', async (req, res) => {
         for (const link of links) {
             if (link.imageUrl && link.imageUrl.startsWith('data:image/')) {
                 try {
-                    const publicUrl = await ensurePublicImageUrl(link.imageUrl);
-                    if (publicUrl && publicUrl.startsWith('http')) {
-                        await link.update({ imageUrl: publicUrl });
-                        results.push({ id: link.id, status: 'converted', url: publicUrl });
-                    } else {
-                        results.push({ id: link.id, status: 'failed', error: 'Conversion returned non-URL' });
-                    }
+                    const publicUrl = await uploadBase64ToImgBB(link.imageUrl);
+                    await link.update({ imageUrl: publicUrl });
+                    results.push({ id: link.id, status: 'converted', url: publicUrl });
                 } catch (e) {
                     results.push({ id: link.id, status: 'failed', error: e.message });
                 }

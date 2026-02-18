@@ -229,6 +229,30 @@ app.get('/api/setup-db', async (req, res) => {
     }
 });
 
+// Migrate base64 images to public URLs
+app.get('/api/migrate-images', async (req, res) => {
+    try {
+        const links = await models.Link.findAll();
+        const results = [];
+        for (const link of links) {
+            if (link.imageUrl && link.imageUrl.startsWith('data:image/')) {
+                try {
+                    const publicUrl = await uploadBase64ToImgBB(link.imageUrl);
+                    await link.update({ imageUrl: publicUrl });
+                    results.push({ id: link.id, status: 'converted', url: publicUrl });
+                } catch (e) {
+                    results.push({ id: link.id, status: 'failed', error: e.message });
+                }
+            } else {
+                results.push({ id: link.id, status: 'skipped', reason: 'already public URL or empty' });
+            }
+        }
+        res.json({ message: 'Migration complete', results });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Deep Debug Route
 app.get('/api/debug-env', async (req, res) => {
     const dbStatus = models && models.sequelize ? 'initialized' : 'failed/missing';

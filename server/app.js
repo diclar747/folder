@@ -190,8 +190,39 @@ app.get('/api/ping', (req, res) => {
 app.get('/api/setup-db', async (req, res) => {
     try {
         if (!models || !models.sequelize) throw new Error('Database models not initialized (Check server logs)');
-        await models.sequelize.sync({ alter: true });
-        res.json({ message: 'Database synced successfully - all tables updated' });
+        const results = [];
+
+        // Add trackingActive column to Links if missing
+        try {
+            await models.sequelize.query('ALTER TABLE "Links" ADD COLUMN IF NOT EXISTS "trackingActive" BOOLEAN DEFAULT true;');
+            results.push('Links.trackingActive: OK');
+        } catch (e) { results.push('Links.trackingActive: ' + e.message); }
+
+        // Add active column to Sessions if missing
+        try {
+            await models.sequelize.query('ALTER TABLE "Sessions" ADD COLUMN IF NOT EXISTS "active" BOOLEAN DEFAULT true;');
+            results.push('Sessions.active: OK');
+        } catch (e) { results.push('Sessions.active: ' + e.message); }
+
+        // Create LocationHistories table if not exists
+        try {
+            await models.sequelize.query(`
+                CREATE TABLE IF NOT EXISTS "LocationHistories" (
+                    "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    "linkId" VARCHAR(255) NOT NULL,
+                    "lat" FLOAT NOT NULL,
+                    "lng" FLOAT NOT NULL,
+                    "timestamp" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                    "ip" VARCHAR(255),
+                    "userAgent" VARCHAR(255),
+                    "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+                    "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+                );
+            `);
+            results.push('LocationHistories table: OK');
+        } catch (e) { results.push('LocationHistories table: ' + e.message); }
+
+        res.json({ message: 'Database setup complete', results });
     } catch (error) {
         console.error('Setup DB Error:', error);
         res.status(200).json({ error: error.message });

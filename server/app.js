@@ -82,14 +82,22 @@ const generateOgHtml = (title, description, image, fullUrl) => {
     <meta name="twitter:image" content="${image}">`;
 };
 
-// Helper: Validate image URL for OG tags (must be a public https/http URL, not base64)
-const isValidOgImageUrl = (url) => {
-    if (!url) return false;
-    return url.startsWith('http://') || url.startsWith('https://');
+// Helper: Resolve the image URL for OG tags
+// If base64 -> use our own /api/links/:id/image endpoint so bots can fetch it
+// If public URL -> use directly
+const resolveOgImage = (imageUrl, linkId, reqHost, reqProtocol) => {
+    const defaultImage = 'https://cdn-icons-png.flaticon.com/512/854/854878.png';
+    if (!imageUrl) return defaultImage;
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) return imageUrl;
+    if (imageUrl.startsWith('data:image/')) {
+        // Serve base64 from our own endpoint so bots can access it
+        return `${reqProtocol}://${reqHost}/api/links/${linkId}/image`;
+    }
+    return defaultImage;
 };
 
 // Helper: Fetch link metadata from database
-const fetchLinkMeta = async (id) => {
+const fetchLinkMeta = async (id, reqHost, reqProtocol) => {
     let title = 'GeoRastreador';
     let description = 'Comparte tu ubicación en tiempo real.';
     const defaultImage = 'https://cdn-icons-png.flaticon.com/512/854/854878.png';
@@ -100,8 +108,7 @@ const fetchLinkMeta = async (id) => {
             if (link) {
                 title = link.title || title;
                 description = link.description || description;
-                // Only use imageUrl if it's a valid public URL (not base64/data URIs)
-                image = isValidOgImageUrl(link.imageUrl) ? link.imageUrl : defaultImage;
+                image = resolveOgImage(link.imageUrl, id, reqHost, reqProtocol);
             }
         }
     } catch (e) {
@@ -111,41 +118,23 @@ const fetchLinkMeta = async (id) => {
 };
 
 // Helper: Fetch full link data including destination URL
-const fetchLinkData = async (id) => {
+const fetchLinkData = async (id, reqHost, reqProtocol) => {
     let title = 'GeoRastreador';
     let description = 'Comparte tu ubicación en tiempo real.';
     const defaultImage = 'https://cdn-icons-png.flaticon.com/512/854/854878.png';
     let image = defaultImage;
     let destinationUrl = '#';
     let buttonText = 'Más información';
-    
+
     try {
         if (models && models.Link) {
             const link = await models.Link.findByPk(id);
             if (link) {
-                console.log('Link found:', link.id, 'Raw imageUrl:', link.imageUrl);
                 title = link.title || title;
                 description = link.description || description;
-                
-                // Validate image URL - must be a public http/https URL, not base64
-                const imgUrl = link.imageUrl ? link.imageUrl.trim() : '';
-                if (imgUrl && imgUrl.startsWith('http') && !imgUrl.startsWith('data:')) {
-                    image = imgUrl;
-                    console.log('✅ Using valid public image URL:', image);
-                } else if (imgUrl && imgUrl.startsWith('data:')) {
-                    console.log('❌ Image is base64, using default. Image must be a public URL (https://...)');
-                    image = defaultImage;
-                } else if (imgUrl) {
-                    console.log('❌ Invalid image URL format:', imgUrl);
-                    image = defaultImage;
-                } else {
-                    console.log('ℹ️ No image configured, using default');
-                }
-                
+                image = resolveOgImage(link.imageUrl, id, reqHost, reqProtocol);
                 destinationUrl = link.destinationUrl || '#';
                 buttonText = link.buttonText || 'Más información';
-            } else {
-                console.log('Link not found:', id);
             }
         }
     } catch (e) {
@@ -156,8 +145,10 @@ const fetchLinkData = async (id) => {
 
 // Landing Page Route - /s/:id shows the preview card
 app.get('/s/:id', async (req, res) => {
-    const { title, description, image, destinationUrl, buttonText } = await fetchLinkData(req.params.id);
-    const fullUrl = `${req.protocol}://${req.get('host')}/s/${req.params.id}`;
+    const host = req.get('host');
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const { title, description, image, destinationUrl, buttonText } = await fetchLinkData(req.params.id, host, protocol);
+    const fullUrl = `${protocol}://${host}/s/${req.params.id}`;
     const trackUrl = `/track/${req.params.id}`;
     const isBot = isSocialBot(req.headers['user-agent'] || '');
     const safeTitle = escapeHtml(title);
@@ -649,6 +640,35 @@ app.get('/api/links/:id', async (req, res) => {
         else res.status(404).json({ message: 'Enlace no encontrado' });
     } catch (error) {
         res.status(500).json({ message: 'Error recuperando enlace' });
+    }
+});
+
+// Serve link image as a real file (so OG tags work with base64 images)
+app.get('/api/links/:id/image', async (req, res) => {
+    try {
+        const link = await models.Link.findByPk(req.params.id, { attributes: ['imageUrl'] });
+        if (!link || !link.imageUrl) return res.status(404).end();
+
+        // If it's a public URL, redirect to it
+        if (link.imageUrl.startsWith('http')) {
+            return res.redirect(301, link.imageUrl);
+        }
+
+        // If it's base64, decode and serve as image
+        if (link.imageUrl.startsWith('data:image/')) {
+            const matches = link.imageUrl.match(/^data:image\/(\w+);base64,(.+)$/);
+            if (matches) {
+                const ext = matches[1]; // png, jpeg, etc
+                const data = Buffer.from(matches[2], 'base64');
+                res.set('Content-Type', `image/${ext}`);
+                res.set('Cache-Control', 'public, max-age=86400');
+                return res.send(data);
+            }
+        }
+
+        res.status(404).end();
+    } catch (error) {
+        res.status(500).end();
     }
 });
 

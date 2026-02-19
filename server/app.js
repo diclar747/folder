@@ -614,7 +614,7 @@ const ensurePublicImageUrl = async (imageUrl) => {
             return await uploadBase64ToImgBB(imageUrl);
         } catch (e) {
             console.error('Auto-upload failed:', e.message);
-            return null; // Will use default fallback
+            return imageUrl; // Keep base64 so image still shows in dashboard/landing
         }
     }
     return imageUrl;

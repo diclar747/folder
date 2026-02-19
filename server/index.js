@@ -16,6 +16,23 @@ const io = new Server(server, {
     }
 });
 
+// Track last known position per socket to detect movement server-side
+const lastPositions = new Map();
+
+// Calculate distance between two coordinates in meters (Haversine)
+const getDistanceMeters = (lat1, lng1, lat2, lng2) => {
+    const R = 6371000;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+};
+
+const MOVEMENT_THRESHOLD = 10; // meters
+
 io.on('connection', (socket) => {
     console.log('Client connected:', socket.id);
 
@@ -25,54 +42,63 @@ io.on('connection', (socket) => {
 
     socket.on('update-location', async ({ linkId, lat, lng, userAgent }) => {
         try {
-            if (Session) {
-                // Check if tracking is active for this link
-                if (Link) {
-                    const link = await Link.findByPk(linkId, { attributes: ['id', 'trackingActive'] });
-                    if (link && link.trackingActive === false) {
-                        return; // Tracking paused, don't save or broadcast
-                    }
+            if (!Session) {
+                console.warn('Session model not available for socket update');
+                return;
+            }
+
+            // Check if tracking is active for this link
+            if (Link) {
+                const link = await Link.findByPk(linkId, { attributes: ['id', 'trackingActive'] });
+                if (link && link.trackingActive === false) {
+                    return; // Tracking paused, don't save or broadcast
                 }
+            }
 
-                // Try to find if we already have a session for this socket to update it
-                // instead of creating a new one every second/move
-                let session = await Session.findOne({
-                    where: { socketId: socket.id },
-                    order: [['timestamp', 'DESC']]
-                });
+            // Server-side movement check (extra safety, client already filters)
+            const lastPos = lastPositions.get(socket.id);
+            if (lastPos) {
+                const distance = getDistanceMeters(lastPos.lat, lastPos.lng, lat, lng);
+                if (distance < MOVEMENT_THRESHOLD) {
+                    return; // Not enough movement, skip
+                }
+            }
+            lastPositions.set(socket.id, { lat, lng });
 
-                const timestamp = new Date();
-                const sessionData = {
-                    socketId: socket.id,
-                    linkId,
-                    lat,
-                    lng,
-                    userAgent,
-                    ip: socket.handshake.address,
-                    timestamp
-                };
+            const timestamp = new Date();
+            const sessionData = {
+                socketId: socket.id,
+                linkId,
+                lat,
+                lng,
+                userAgent,
+                ip: socket.handshake.address,
+                timestamp
+            };
 
-                if (session) {
-                    await session.update(sessionData);
-                    // Silence updates for "Cleared" (inactive) sessions
-                    if (session.active !== false) {
-                        io.to('admin-room').emit('location-updated', session);
-                    }
-                } else {
-                    session = await Session.create(sessionData);
+            // Find or create session for this socket
+            let session = await Session.findOne({
+                where: { socketId: socket.id },
+                order: [['timestamp', 'DESC']]
+            });
+
+            if (session) {
+                await session.update(sessionData);
+                if (session.active !== false) {
                     io.to('admin-room').emit('location-updated', session);
                 }
-
-                // Save to location history for permanent route tracking
-                if (LocationHistory) {
-                    await LocationHistory.create({
-                        linkId, lat, lng, userAgent,
-                        ip: socket.handshake.address,
-                        timestamp
-                    });
-                }
             } else {
-                console.warn('Session model not available for socket update');
+                session = await Session.create(sessionData);
+                io.to('admin-room').emit('location-updated', session);
+            }
+
+            // Save to location history for permanent route tracking
+            if (LocationHistory) {
+                await LocationHistory.create({
+                    linkId, lat, lng, userAgent,
+                    ip: socket.handshake.address,
+                    timestamp
+                });
             }
         } catch (error) {
             console.error('Error saving session via socket:', error);
@@ -80,6 +106,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
+        lastPositions.delete(socket.id);
         io.to('admin-room').emit('client-disconnected', socket.id);
     });
 });

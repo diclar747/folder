@@ -33,6 +33,29 @@ const mapOptions = {
 
 const libraries = ['places', 'geometry'];
 
+// Haversine distance in meters
+const haversineDistance = (lat1, lng1, lat2, lng2) => {
+    const R = 6371000;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
+const formatDistance = (meters) => {
+    if (meters < 1000) return `${Math.round(meters)} m`;
+    return `${(meters / 1000).toFixed(2)} km`;
+};
+
+const formatDuration = (ms) => {
+    const secs = Math.floor(ms / 1000);
+    if (secs < 60) return `${secs}s`;
+    const mins = Math.floor(secs / 60);
+    if (mins < 60) return `${mins}m ${secs % 60}s`;
+    const hrs = Math.floor(mins / 60);
+    return `${hrs}h ${mins % 60}m`;
+};
+
 const UserDashboard = () => {
     const { logout } = useAuth();
     const navigate = useNavigate();
@@ -67,6 +90,8 @@ const UserDashboard = () => {
     const [historyDateFrom, setHistoryDateFrom] = useState('');
     const [historyDateTo, setHistoryDateTo] = useState('');
     const [historyLoading, setHistoryLoading] = useState(false);
+    const [selectedHistoryPoint, setSelectedHistoryPoint] = useState(null);
+    const historyMapRef = useRef(null);
 
     const togglePause = async (id) => {
         try {
@@ -315,11 +340,14 @@ const UserDashboard = () => {
         setHistoryLoading(true);
         try {
             const params = {};
-            if (from) params.from = new Date(from).toISOString();
+            if (from) {
+                const fromDate = new Date(from);
+                fromDate.setUTCHours(0, 0, 0, 0);
+                params.from = fromDate.toISOString();
+            }
             if (to) {
-                // Set end of day for the 'to' date
                 const toDate = new Date(to);
-                toDate.setHours(23, 59, 59, 999);
+                toDate.setUTCHours(23, 59, 59, 999);
                 params.to = toDate.toISOString();
             }
             const res = await api.get(`/links/${linkId}/history`, { params });
@@ -819,19 +847,33 @@ const UserDashboard = () => {
             )}
 
             {/* Location History Modal */}
-            {historyModal && (
+            {historyModal && (() => {
+                // Compute route stats
+                let totalDist = 0;
+                const segmentDists = [0];
+                for (let i = 1; i < historyData.length; i++) {
+                    const d = haversineDistance(historyData[i - 1].lat, historyData[i - 1].lng, historyData[i].lat, historyData[i].lng);
+                    totalDist += d;
+                    segmentDists.push(d);
+                }
+                const totalTime = historyData.length > 1 ? new Date(historyData[historyData.length - 1].timestamp) - new Date(historyData[0].timestamp) : 0;
+                const avgSpeed = totalTime > 0 ? (totalDist / 1000) / (totalTime / 3600000) : 0;
+
+                return (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-5xl max-h-[92vh] overflow-hidden flex flex-col">
                         {/* Header */}
                         <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
                             <div className="flex items-center gap-3">
-                                <span className="material-symbols-outlined text-purple-500">history</span>
+                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
+                                    <span className="material-symbols-outlined text-white text-xl">route</span>
+                                </div>
                                 <div>
                                     <h3 className="text-lg font-bold dark:text-white">Historial de Recorrido</h3>
                                     <p className="text-xs text-slate-500">{historyModal.linkTitle}</p>
                                 </div>
                             </div>
-                            <button onClick={() => setHistoryModal(null)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-500">
+                            <button onClick={() => { setHistoryModal(null); setSelectedHistoryPoint(null); }} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-500">
                                 <span className="material-symbols-outlined">close</span>
                             </button>
                         </div>
@@ -878,6 +920,7 @@ const UserDashboard = () => {
                                         onClick={() => {
                                             setHistoryDateFrom(d.date);
                                             setHistoryDateTo(d.date);
+                                            setSelectedHistoryPoint(null);
                                             fetchHistory(historyModal.linkId, d.date, d.date);
                                         }}
                                         className={`shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-colors ${
@@ -892,7 +935,54 @@ const UserDashboard = () => {
                             </div>
                         )}
 
-                        {/* Content: Map + List */}
+                        {/* Route Stats Bar */}
+                        {historyData.length > 0 && (
+                            <div className="px-6 py-3 border-b border-slate-100 dark:border-slate-800 flex flex-wrap gap-4 shrink-0 bg-slate-50/50 dark:bg-slate-800/30">
+                                <div className="flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-purple-500 text-lg">straighten</span>
+                                    <div>
+                                        <p className="text-[10px] text-slate-400 uppercase font-bold">Distancia Total</p>
+                                        <p className="text-sm font-bold text-slate-900 dark:text-white">{formatDistance(totalDist)}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-blue-500 text-lg">schedule</span>
+                                    <div>
+                                        <p className="text-[10px] text-slate-400 uppercase font-bold">Duración</p>
+                                        <p className="text-sm font-bold text-slate-900 dark:text-white">{totalTime > 0 ? formatDuration(totalTime) : '—'}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-green-500 text-lg">speed</span>
+                                    <div>
+                                        <p className="text-[10px] text-slate-400 uppercase font-bold">Vel. Promedio</p>
+                                        <p className="text-sm font-bold text-slate-900 dark:text-white">{avgSpeed > 0 ? `${avgSpeed.toFixed(1)} km/h` : '—'}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-orange-500 text-lg">pin_drop</span>
+                                    <div>
+                                        <p className="text-[10px] text-slate-400 uppercase font-bold">Puntos</p>
+                                        <p className="text-sm font-bold text-slate-900 dark:text-white">{historyData.length}</p>
+                                    </div>
+                                </div>
+                                {historyData.length > 0 && (
+                                    <div className="flex items-center gap-2 ml-auto">
+                                        <span className="material-symbols-outlined text-slate-400 text-lg">access_time</span>
+                                        <div>
+                                            <p className="text-[10px] text-slate-400 uppercase font-bold">Período</p>
+                                            <p className="text-xs font-mono text-slate-600 dark:text-slate-300">
+                                                {new Date(historyData[0].timestamp).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
+                                                {' → '}
+                                                {new Date(historyData[historyData.length - 1].timestamp).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Content: Map + Timeline */}
                         <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
                             {/* Map */}
                             <div className="flex-1 min-h-[300px] relative">
@@ -904,87 +994,234 @@ const UserDashboard = () => {
                                 {isLoaded && (
                                     <GoogleMap
                                         mapContainerStyle={{ width: '100%', height: '100%' }}
-                                        zoom={historyData.length > 0 ? 14 : 2}
-                                        center={historyData.length > 0 ? { lat: historyData[0].lat, lng: historyData[0].lng } : center}
+                                        zoom={historyData.length > 0 ? 15 : 2}
+                                        center={
+                                            selectedHistoryPoint
+                                                ? { lat: selectedHistoryPoint.lat, lng: selectedHistoryPoint.lng }
+                                                : historyData.length > 0
+                                                    ? { lat: historyData[0].lat, lng: historyData[0].lng }
+                                                    : center
+                                        }
                                         options={mapOptions}
+                                        onLoad={(map) => {
+                                            historyMapRef.current = map;
+                                            if (historyData.length > 1) {
+                                                const bounds = new window.google.maps.LatLngBounds();
+                                                historyData.forEach(p => bounds.extend({ lat: p.lat, lng: p.lng }));
+                                                map.fitBounds(bounds, 50);
+                                            }
+                                        }}
                                     >
-                                        {/* Route Polyline */}
-                                        {historyData.length > 1 && (
-                                            <Polyline
-                                                path={historyData.map(p => ({ lat: p.lat, lng: p.lng }))}
-                                                options={{
-                                                    strokeColor: '#8b5cf6',
-                                                    strokeOpacity: 0.8,
-                                                    strokeWeight: 3,
-                                                }}
-                                            />
-                                        )}
-                                        {/* Start Marker */}
+                                        {/* Gradient Route Polyline segments */}
+                                        {historyData.length > 1 && historyData.map((point, idx) => {
+                                            if (idx === 0) return null;
+                                            const progress = idx / (historyData.length - 1);
+                                            // Green -> Purple -> Red gradient
+                                            const r = Math.round(34 + progress * (239 - 34));
+                                            const g = Math.round(197 + progress * (68 - 197));
+                                            const b = Math.round(94 + progress * (68 - 94));
+                                            const color = `rgb(${r},${g},${b})`;
+                                            return (
+                                                <Polyline
+                                                    key={`seg-${idx}`}
+                                                    path={[
+                                                        { lat: historyData[idx - 1].lat, lng: historyData[idx - 1].lng },
+                                                        { lat: point.lat, lng: point.lng }
+                                                    ]}
+                                                    options={{
+                                                        strokeColor: color,
+                                                        strokeOpacity: 0.9,
+                                                        strokeWeight: 4,
+                                                        icons: idx % 3 === 0 ? [{
+                                                            icon: { path: window.google?.maps?.SymbolPath?.FORWARD_CLOSED_ARROW, scale: 2.5, fillColor: color, fillOpacity: 1, strokeWeight: 0 },
+                                                            offset: '50%'
+                                                        }] : [],
+                                                    }}
+                                                />
+                                            );
+                                        })}
+
+                                        {/* Start Marker - Green flag */}
                                         {historyData.length > 0 && (
                                             <Marker
                                                 position={{ lat: historyData[0].lat, lng: historyData[0].lng }}
                                                 icon={{
                                                     path: window.google?.maps?.SymbolPath?.CIRCLE,
-                                                    scale: 8,
+                                                    scale: 10,
                                                     fillColor: '#22c55e',
                                                     fillOpacity: 1,
                                                     strokeColor: '#ffffff',
-                                                    strokeWeight: 2,
+                                                    strokeWeight: 3,
                                                 }}
-                                                title="Inicio"
+                                                label={{ text: 'A', color: '#fff', fontWeight: 'bold', fontSize: '11px' }}
+                                                title="Inicio del recorrido"
+                                                onClick={() => setSelectedHistoryPoint(historyData[0])}
                                             />
                                         )}
-                                        {/* End Marker */}
+                                        {/* End Marker - Red flag */}
                                         {historyData.length > 1 && (
                                             <Marker
                                                 position={{ lat: historyData[historyData.length - 1].lat, lng: historyData[historyData.length - 1].lng }}
                                                 icon={{
                                                     path: window.google?.maps?.SymbolPath?.CIRCLE,
-                                                    scale: 8,
+                                                    scale: 10,
                                                     fillColor: '#ef4444',
                                                     fillOpacity: 1,
                                                     strokeColor: '#ffffff',
-                                                    strokeWeight: 2,
+                                                    strokeWeight: 3,
                                                 }}
-                                                title="Fin"
+                                                label={{ text: 'B', color: '#fff', fontWeight: 'bold', fontSize: '11px' }}
+                                                title="Fin del recorrido"
+                                                onClick={() => setSelectedHistoryPoint(historyData[historyData.length - 1])}
                                             />
                                         )}
+
+                                        {/* Selected point marker */}
+                                        {selectedHistoryPoint && selectedHistoryPoint !== historyData[0] && selectedHistoryPoint !== historyData[historyData.length - 1] && (
+                                            <Marker
+                                                position={{ lat: selectedHistoryPoint.lat, lng: selectedHistoryPoint.lng }}
+                                                icon={{
+                                                    path: window.google?.maps?.SymbolPath?.CIRCLE,
+                                                    scale: 9,
+                                                    fillColor: '#f59e0b',
+                                                    fillOpacity: 1,
+                                                    strokeColor: '#ffffff',
+                                                    strokeWeight: 3,
+                                                }}
+                                                zIndex={999}
+                                            />
+                                        )}
+
+                                        {/* InfoWindow for selected point */}
+                                        {selectedHistoryPoint && (
+                                            <InfoWindow
+                                                position={{ lat: selectedHistoryPoint.lat, lng: selectedHistoryPoint.lng }}
+                                                onCloseClick={() => setSelectedHistoryPoint(null)}
+                                                options={{ pixelOffset: new window.google.maps.Size(0, -15) }}
+                                            >
+                                                <div style={{ padding: '4px 2px', minWidth: 140 }}>
+                                                    <p style={{ fontWeight: 'bold', fontSize: 12, marginBottom: 4 }}>
+                                                        Punto #{historyData.indexOf(selectedHistoryPoint) + 1}
+                                                    </p>
+                                                    <p style={{ fontSize: 11, color: '#666', fontFamily: 'monospace' }}>
+                                                        {selectedHistoryPoint.lat.toFixed(6)}, {selectedHistoryPoint.lng.toFixed(6)}
+                                                    </p>
+                                                    <p style={{ fontSize: 11, color: '#888', marginTop: 2 }}>
+                                                        {new Date(selectedHistoryPoint.timestamp).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                                    </p>
+                                                    {historyData.indexOf(selectedHistoryPoint) > 0 && (
+                                                        <p style={{ fontSize: 11, color: '#8b5cf6', marginTop: 2, fontWeight: 600 }}>
+                                                            +{formatDistance(segmentDists[historyData.indexOf(selectedHistoryPoint)])} desde anterior
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </InfoWindow>
+                                        )}
                                     </GoogleMap>
+                                )}
+
+                                {/* Map Legend */}
+                                {historyData.length > 0 && (
+                                    <div className="absolute bottom-3 left-3 bg-black/70 backdrop-blur-sm rounded-lg px-3 py-2 flex items-center gap-3 text-[10px] text-white font-bold">
+                                        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-green-500 border border-white"></span> Inicio</span>
+                                        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-red-500 border border-white"></span> Fin</span>
+                                        <span className="flex items-center gap-1"><span className="w-6 h-0.5 bg-gradient-to-r from-green-500 via-purple-500 to-red-500 rounded"></span> Ruta</span>
+                                    </div>
                                 )}
                             </div>
 
                             {/* Timeline List */}
-                            <div className="w-full md:w-72 border-t md:border-t-0 md:border-l border-slate-100 dark:border-slate-800 overflow-y-auto max-h-[250px] md:max-h-full">
+                            <div className="w-full md:w-80 border-t md:border-t-0 md:border-l border-slate-100 dark:border-slate-800 overflow-y-auto max-h-[250px] md:max-h-full">
                                 <div className="p-3">
-                                    <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Puntos del recorrido</h4>
+                                    <h4 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-1">
+                                        <span className="material-symbols-outlined text-sm">timeline</span>
+                                        Recorrido detallado
+                                    </h4>
                                     {historyData.length === 0 && !historyLoading && (
-                                        <p className="text-xs text-slate-400 italic py-4 text-center">No hay datos para esta fecha</p>
+                                        <div className="py-8 text-center">
+                                            <span className="material-symbols-outlined text-3xl text-slate-300 dark:text-slate-600">location_off</span>
+                                            <p className="text-xs text-slate-400 italic mt-2">No hay datos para esta fecha</p>
+                                        </div>
                                     )}
-                                    <div className="space-y-1">
-                                        {historyData.map((point, idx) => (
-                                            <div
-                                                key={point.id}
-                                                className="flex items-start gap-2 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors"
-                                                title={`${point.lat.toFixed(6)}, ${point.lng.toFixed(6)}`}
-                                            >
-                                                <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${idx === 0 ? 'bg-green-500' : idx === historyData.length - 1 ? 'bg-red-500' : 'bg-purple-500'}`}></div>
-                                                <div className="min-w-0">
-                                                    <p className="text-[11px] font-mono text-slate-600 dark:text-slate-300 truncate">
-                                                        {point.lat.toFixed(5)}, {point.lng.toFixed(5)}
-                                                    </p>
-                                                    <p className="text-[10px] text-slate-400">
-                                                        {new Date(point.timestamp).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        ))}
+                                    <div className="relative">
+                                        {/* Vertical connector line */}
+                                        {historyData.length > 1 && (
+                                            <div className="absolute left-[11px] top-3 bottom-3 w-[2px] bg-gradient-to-b from-green-500 via-purple-500 to-red-500 rounded-full"></div>
+                                        )}
+                                        <div className="space-y-0">
+                                            {historyData.map((point, idx) => {
+                                                const isFirst = idx === 0;
+                                                const isLast = idx === historyData.length - 1;
+                                                const isSelected = selectedHistoryPoint === point;
+                                                const timeDiff = idx > 0 ? new Date(point.timestamp) - new Date(historyData[idx - 1].timestamp) : 0;
+                                                return (
+                                                    <div
+                                                        key={point.id}
+                                                        className={`flex items-start gap-3 px-2 py-2 rounded-lg cursor-pointer transition-all relative ${
+                                                            isSelected
+                                                                ? 'bg-purple-50 dark:bg-purple-900/20 ring-1 ring-purple-300 dark:ring-purple-700'
+                                                                : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                                                        }`}
+                                                        onClick={() => {
+                                                            setSelectedHistoryPoint(point);
+                                                            if (historyMapRef.current) {
+                                                                historyMapRef.current.panTo({ lat: point.lat, lng: point.lng });
+                                                                historyMapRef.current.setZoom(17);
+                                                            }
+                                                        }}
+                                                    >
+                                                        {/* Dot indicator */}
+                                                        <div className="relative z-10 shrink-0 mt-0.5">
+                                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold border-2 ${
+                                                                isFirst ? 'bg-green-500 border-green-300 text-white'
+                                                                : isLast ? 'bg-red-500 border-red-300 text-white'
+                                                                : isSelected ? 'bg-amber-500 border-amber-300 text-white'
+                                                                : 'bg-purple-500/80 border-purple-300/50 text-white'
+                                                            }`}>
+                                                                {isFirst ? 'A' : isLast ? 'B' : idx}
+                                                            </div>
+                                                        </div>
+                                                        {/* Content */}
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="flex items-center justify-between gap-2">
+                                                                <p className="text-[11px] font-mono text-slate-700 dark:text-slate-200 truncate">
+                                                                    {point.lat.toFixed(6)}, {point.lng.toFixed(6)}
+                                                                </p>
+                                                                <span className="text-[10px] font-bold text-slate-400 shrink-0">
+                                                                    {new Date(point.timestamp).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                                                </span>
+                                                            </div>
+                                                            {idx > 0 && (
+                                                                <div className="flex items-center gap-2 mt-0.5">
+                                                                    <span className="text-[10px] text-purple-500 font-semibold">
+                                                                        +{formatDistance(segmentDists[idx])}
+                                                                    </span>
+                                                                    {timeDiff > 0 && (
+                                                                        <span className="text-[10px] text-slate-400">
+                                                                            · {formatDuration(timeDiff)}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                            {isFirst && (
+                                                                <span className="text-[10px] text-green-600 font-bold">Punto de inicio</span>
+                                                            )}
+                                                            {isLast && historyData.length > 1 && (
+                                                                <span className="text-[10px] text-red-500 font-bold">Último punto · {formatDistance(totalDist)} total</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            )}
+                );
+            })()}
         </div>
     );
 };

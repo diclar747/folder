@@ -10,8 +10,10 @@ const CreateLinkForm = ({ onLinkCreated }) => {
         buttonText: 'Más información'
     });
     const [createdLink, setCreatedLink] = useState(null);
+    const [imgError, setImgError] = useState(false);
 
     const handleChange = (e) => {
+        if (e.target.name === 'imageUrl') setImgError(false);
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
@@ -129,8 +131,8 @@ const CreateLinkForm = ({ onLinkCreated }) => {
                                 <span className="text-gray-500 dark:text-slate-500 text-xs font-bold uppercase tracking-wider mb-2 block">Vista Previa</span>
                                 <div className="border border-gray-200 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-slate-950 max-w-sm">
                                     <div className="h-32 bg-slate-100 dark:bg-slate-900 flex items-center justify-center relative overflow-hidden">
-                                        {formData.imageUrl ? (
-                                            <img src={formData.imageUrl} alt="Preview" className="w-full h-full object-cover" onError={(e) => {e.target.style.display='none'}} />
+                                        {formData.imageUrl && !imgError ? (
+                                            <img src={formData.imageUrl} alt="Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" onError={() => setImgError(true)} />
                                         ) : (
                                             <span className="material-symbols-outlined text-4xl text-slate-300 dark:text-slate-700">image</span>
                                         )}

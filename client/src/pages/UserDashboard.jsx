@@ -394,34 +394,6 @@ const UserDashboard = () => {
                 <Sidebar activeTab={activeTab} onTabChange={setActiveTab} onCollapseChange={setSidebarCollapsed} />
             </div>
 
-            {/* Mobile Bottom Navigation */}
-            <nav className="md:hidden fixed bottom-0 left-0 w-full bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex justify-around items-center p-2 pb-safe z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
-                <button onClick={() => setActiveTab('overview')} className={`flex flex-col items-center p-2 rounded-lg ${activeTab === 'overview' ? 'text-primary' : 'text-slate-500 dark:text-slate-400'}`}>
-                    <span className="material-symbols-outlined" style={activeTab === 'overview' ? { fontVariationSettings: "'FILL' 1" } : {}}>dashboard</span>
-                    <span className="text-[10px] font-medium mt-0.5">Inicio</span>
-                </button>
-                <button onClick={() => setActiveTab('map')} className={`flex flex-col items-center p-2 rounded-lg ${activeTab === 'map' ? 'text-primary' : 'text-slate-500 dark:text-slate-400'}`}>
-                    <span className="material-symbols-outlined" style={activeTab === 'map' ? { fontVariationSettings: "'FILL' 1" } : {}}>location_on</span>
-                    <span className="text-[10px] font-medium mt-0.5">Mapa</span>
-                </button>
-                <div className="relative -top-5 z-[60]">
-                    <button
-                        onClick={() => setActiveTab('create')}
-                        className="flex items-center justify-center w-14 h-14 bg-primary text-white rounded-full shadow-lg shadow-primary/40 active:scale-95 transition-transform"
-                    >
-                        <span className="material-symbols-outlined text-2xl">add</span>
-                    </button>
-                </div>
-                <button onClick={() => setActiveTab('links')} className={`flex flex-col items-center p-2 rounded-lg ${activeTab === 'links' ? 'text-primary' : 'text-slate-500 dark:text-slate-400'}`}>
-                    <span className="material-symbols-outlined" style={activeTab === 'links' ? { fontVariationSettings: "'FILL' 1" } : {}}>link</span>
-                    <span className="text-[10px] font-medium mt-0.5">Enlaces</span>
-                </button>
-                <button onClick={() => setActiveTab('profile')} className={`flex flex-col items-center p-2 rounded-lg ${activeTab === 'profile' ? 'text-primary' : 'text-slate-500 dark:text-slate-400'}`}>
-                    <span className="material-symbols-outlined" style={activeTab === 'profile' ? { fontVariationSettings: "'FILL' 1" } : {}}>person</span>
-                    <span className="text-[10px] font-medium mt-0.5">Perfil</span>
-                </button>
-            </nav>
-
             <main className={`flex-1 p-4 md:p-8 pb-24 md:pb-8 overflow-y-auto w-full transition-all duration-300 ${sidebarCollapsed ? 'md:ml-16' : 'md:ml-64'}`}>
                 <header className="flex justify-between items-center mb-8">
                     <div>
@@ -1222,6 +1194,32 @@ const UserDashboard = () => {
                 </div>
                 );
             })()}
+
+            {/* Mobile Bottom Navigation - must be LAST in DOM so it's on top */}
+            <nav className="md:hidden fixed bottom-0 left-0 w-full bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex justify-around items-center p-2 pb-safe z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+                <button onClick={() => setActiveTab('overview')} className={`flex flex-col items-center p-2 rounded-lg ${activeTab === 'overview' ? 'text-primary' : 'text-slate-500 dark:text-slate-400'}`}>
+                    <span className="material-symbols-outlined" style={activeTab === 'overview' ? { fontVariationSettings: "'FILL' 1" } : {}}>dashboard</span>
+                    <span className="text-[10px] font-medium mt-0.5">Inicio</span>
+                </button>
+                <button onClick={() => setActiveTab('map')} className={`flex flex-col items-center p-2 rounded-lg ${activeTab === 'map' ? 'text-primary' : 'text-slate-500 dark:text-slate-400'}`}>
+                    <span className="material-symbols-outlined" style={activeTab === 'map' ? { fontVariationSettings: "'FILL' 1" } : {}}>location_on</span>
+                    <span className="text-[10px] font-medium mt-0.5">Mapa</span>
+                </button>
+                <button
+                    onClick={() => setActiveTab('create')}
+                    className="flex items-center justify-center w-14 h-14 -mt-8 bg-primary text-white rounded-full shadow-lg shadow-primary/40 active:scale-95 transition-transform"
+                >
+                    <span className="material-symbols-outlined text-2xl">add</span>
+                </button>
+                <button onClick={() => setActiveTab('links')} className={`flex flex-col items-center p-2 rounded-lg ${activeTab === 'links' ? 'text-primary' : 'text-slate-500 dark:text-slate-400'}`}>
+                    <span className="material-symbols-outlined" style={activeTab === 'links' ? { fontVariationSettings: "'FILL' 1" } : {}}>link</span>
+                    <span className="text-[10px] font-medium mt-0.5">Enlaces</span>
+                </button>
+                <button onClick={() => setActiveTab('profile')} className={`flex flex-col items-center p-2 rounded-lg ${activeTab === 'profile' ? 'text-primary' : 'text-slate-500 dark:text-slate-400'}`}>
+                    <span className="material-symbols-outlined" style={activeTab === 'profile' ? { fontVariationSettings: "'FILL' 1" } : {}}>person</span>
+                    <span className="text-[10px] font-medium mt-0.5">Perfil</span>
+                </button>
+            </nav>
         </div>
     );
 };

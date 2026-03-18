@@ -404,7 +404,7 @@ const UserDashboard = () => {
                     <span className="material-symbols-outlined" style={activeTab === 'map' ? { fontVariationSettings: "'FILL' 1" } : {}}>location_on</span>
                     <span className="text-[10px] font-medium mt-0.5">Mapa</span>
                 </button>
-                <div className="relative -top-5">
+                <div className="relative -top-5 z-[60]">
                     <button
                         onClick={() => setActiveTab('create')}
                         className="flex items-center justify-center w-14 h-14 bg-primary text-white rounded-full shadow-lg shadow-primary/40 active:scale-95 transition-transform"

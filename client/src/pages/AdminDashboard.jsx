@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, LayersControl, LayerGroup } from 'react-leaflet';
 import L from 'leaflet';
 import { io } from 'socket.io-client';
 import api from '../services/api';
@@ -174,10 +174,38 @@ const AdminDashboard = () => {
                                 zoom={selectedSession ? 15 : 7}
                                 center={selectedSession ? [selectedSession.lat, selectedSession.lng] : [center.lat, center.lng]}
                             >
-                                <TileLayer
-                                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                                />
+                                <LayersControl position="topright">
+                                    <LayersControl.BaseLayer checked name="Satélite">
+                                        <TileLayer
+                                            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                                            attribution='Tiles &copy; Esri'
+                                        />
+                                    </LayersControl.BaseLayer>
+                                    <LayersControl.BaseLayer name="Híbrido">
+                                        <LayerGroup>
+                                            <TileLayer
+                                                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                                                attribution='Tiles &copy; Esri'
+                                            />
+                                            <TileLayer
+                                                url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+                                                attribution='Tiles &copy; Esri'
+                                            />
+                                        </LayerGroup>
+                                    </LayersControl.BaseLayer>
+                                    <LayersControl.BaseLayer name="Mapa">
+                                        <TileLayer
+                                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                                        />
+                                    </LayersControl.BaseLayer>
+                                    <LayersControl.BaseLayer name="Oscuro">
+                                        <TileLayer
+                                            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                                        />
+                                    </LayersControl.BaseLayer>
+                                </LayersControl>
                                 {sessions.map(s => (
                                     <Marker
                                         key={s.id || s.socketId}

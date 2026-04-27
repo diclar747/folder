@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, LayersControl, LayerGroup } from 'react-leaflet';
 import L from 'leaflet';
 import { io } from 'socket.io-client';
 import api from '../services/api';
@@ -521,10 +521,38 @@ const UserDashboard = () => {
                             </div>
                             <div className="bg-white dark:bg-surface-dark rounded-xl border border-slate-100 dark:border-border-dark shadow-sm p-6 h-[400px] relative overflow-hidden">
                                 <MapContainer style={mapContainerStyle} zoom={2} center={[center.lat, center.lng]}>
-                                    <TileLayer
-                                        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                                    />
+                                    <LayersControl position="topright">
+                                        <LayersControl.BaseLayer checked name="Satélite">
+                                            <TileLayer
+                                                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                                                attribution='Tiles &copy; Esri'
+                                            />
+                                        </LayersControl.BaseLayer>
+                                        <LayersControl.BaseLayer name="Híbrido">
+                                            <LayerGroup>
+                                                <TileLayer
+                                                    url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                                                    attribution='Tiles &copy; Esri'
+                                                />
+                                                <TileLayer
+                                                    url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+                                                    attribution='Tiles &copy; Esri'
+                                                />
+                                            </LayerGroup>
+                                        </LayersControl.BaseLayer>
+                                        <LayersControl.BaseLayer name="Mapa">
+                                            <TileLayer
+                                                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                                            />
+                                        </LayersControl.BaseLayer>
+                                        <LayersControl.BaseLayer name="Oscuro">
+                                            <TileLayer
+                                                url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                                                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                                            />
+                                        </LayersControl.BaseLayer>
+                                    </LayersControl>
                                     {sessions.map(s => (
                                         <Marker key={s.id || s.socketId} position={[s.lat, s.lng]} icon={redIcon} />
                                     ))}
@@ -566,10 +594,66 @@ const UserDashboard = () => {
                 {activeTab === 'map' && (
                     <div className="bg-white dark:bg-surface-dark rounded-xl border border-slate-100 dark:border-border-dark shadow-sm overflow-hidden h-[600px] relative">
                             <MapContainer style={mapContainerStyle} zoom={selectedSession ? 15 : (myLocation ? 12 : 2)} center={selectedSession ? [selectedSession.lat, selectedSession.lng] : (myLocation ? [myLocation.lat, myLocation.lng] : [center.lat, center.lng])}>
-                                <TileLayer
-                                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                                />
+                                <LayersControl position="topright">
+                                    <LayersControl.BaseLayer checked name="Satélite">
+                                        <TileLayer
+                                            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                                            attribution='Tiles &copy; Esri'
+                                        />
+                                    </LayersControl.BaseLayer>
+                                    <LayersControl.BaseLayer name="Híbrido">
+                                        <LayerGroup>
+                                            <TileLayer
+                                                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                                                attribution='Tiles &copy; Esri'
+                                            />
+                                            <TileLayer
+                                                url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+                                                attribution='Tiles &copy; Esri'
+                                            />
+                                        </LayerGroup>
+                                    </LayersControl.BaseLayer>
+                                    <LayersControl.BaseLayer name="Mapa">
+                                        <TileLayer
+                                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                                        />
+                                    </LayersControl.BaseLayer>
+                                    <LayersControl.BaseLayer name="Oscuro">
+                                        <LayersControl position="topright">
+                                            <LayersControl.BaseLayer checked name="Satélite">
+                                                <TileLayer
+                                                    url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                                                    attribution='Tiles &copy; Esri'
+                                                />
+                                            </LayersControl.BaseLayer>
+                                            <LayersControl.BaseLayer name="Híbrido">
+                                                <LayerGroup>
+                                                    <TileLayer
+                                                        url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                                                        attribution='Tiles &copy; Esri'
+                                                    />
+                                                    <TileLayer
+                                                        url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+                                                        attribution='Tiles &copy; Esri'
+                                                    />
+                                                </LayerGroup>
+                                            </LayersControl.BaseLayer>
+                                            <LayersControl.BaseLayer name="Mapa">
+                                                <TileLayer
+                                                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                                                />
+                                            </LayersControl.BaseLayer>
+                                            <LayersControl.BaseLayer name="Oscuro">
+                                                <TileLayer
+                                                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                                                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                                                />
+                                            </LayersControl.BaseLayer>
+                                        </LayersControl>
+                                    </LayersControl.BaseLayer>
+                                </LayersControl>
                                 {/* Admin/User Device Location */}
                                 {myLocation && (
                                     <Marker

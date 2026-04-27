@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { GoogleMap, useLoadScript, Marker, InfoWindow, Polyline } from '@react-google-maps/api';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import L from 'leaflet';
 import { io } from 'socket.io-client';
 import api from '../services/api';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
@@ -18,20 +19,54 @@ const center = {
     lng: -58.381592
 };
 
-const mapOptions = {
-    disableDefaultUI: true,
-    mapTypeId: "hybrid", // "hybrid" shows satellite + street names (better than simple satellite)
-    styles: [
-        { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
-        { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
-        { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
-        { featureType: "road", elementType: "geometry", stylers: [{ color: "#38414e" }] },
-        { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#212a37" }] },
-        { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] },
-    ]
+const redIcon = L.divIcon({
+    className: 'custom-marker',
+    html: '<div style="background:#ef4444;width:14px;height:14px;border-radius:50%;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3);"></div>',
+    iconSize: [16, 16],
+    iconAnchor: [8, 8]
+});
+const blueIcon = L.divIcon({
+    className: 'custom-marker',
+    html: '<div style="background:#3b82f6;width:14px;height:14px;border-radius:50%;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3);"></div>',
+    iconSize: [16, 16],
+    iconAnchor: [8, 8]
+});
+
+const MapController = ({ center, zoom }) => {
+    const map = useMap();
+    useEffect(() => {
+        map.setView(center, zoom);
+    }, [map, center, zoom]);
+    return null;
 };
 
-const libraries = ['places', 'geometry'];
+const HistoryMapController = ({ data, selectedPoint }) => {
+    const map = useMap();
+    useEffect(() => {
+        if (data.length > 1) {
+            const bounds = L.latLngBounds(data.map(p => [p.lat, p.lng]));
+            map.fitBounds(bounds);
+        } else if (data.length === 1) {
+            map.setView([data[0].lat, data[0].lng], 15);
+        }
+    }, [data, map]);
+
+    useEffect(() => {
+        if (selectedPoint) {
+            map.setView([selectedPoint.lat, selectedPoint.lng], 17);
+        }
+    }, [selectedPoint, map]);
+
+    return null;
+};
+
+const HistoryMapRefSetter = ({ mapRef }) => {
+    const map = useMap();
+    useEffect(() => {
+        mapRef.current = map;
+    }, [map, mapRef]);
+    return null;
+};
 
 // Haversine distance in meters
 const haversineDistance = (lat1, lng1, lat2, lng2) => {
@@ -60,11 +95,6 @@ const UserDashboard = () => {
     const { logout } = useAuth();
     const navigate = useNavigate();
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-
-    const { isLoaded, loadError } = useLoadScript({
-        googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyB54FCg9mXx85ckZ4fLJK2dOokbTeVdj9E',
-        libraries,
-    });
 
     const [stats, setStats] = useState({ totalLinks: 0, totalLocations: 0 });
     const [myLocation, setMyLocation] = useState(null);
@@ -384,9 +414,6 @@ const UserDashboard = () => {
 
 
 
-    if (loadError) return <div className="flex items-center justify-center h-screen text-red-500">Error loading maps</div>;
-    if (!isLoaded) return <div className="flex items-center justify-center h-screen text-slate-500">Loading Maps...</div>;
-
     return (
         <div className="bg-background-light dark:bg-background-dark min-h-screen flex font-display">
             {/* Desktop Sidebar */}
@@ -493,12 +520,15 @@ const UserDashboard = () => {
                                 </div>
                             </div>
                             <div className="bg-white dark:bg-surface-dark rounded-xl border border-slate-100 dark:border-border-dark shadow-sm p-6 h-[400px] relative overflow-hidden">
-                                {isLoaded && (
-                                    <GoogleMap mapContainerStyle={mapContainerStyle} zoom={2} center={center} options={mapOptions}>
-                                        {sessions.map(s => <Marker key={s.id || s.socketId} position={{ lat: s.lat, lng: s.lng }} />)}
-                                    </GoogleMap>
-                                )}
-                                {!isLoaded && <div className="flex items-center justify-center h-full text-slate-500">Cargando Mapa...</div>}
+                                <MapContainer style={mapContainerStyle} zoom={2} center={[center.lat, center.lng]}>
+                                    <TileLayer
+                                        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                                    />
+                                    {sessions.map(s => (
+                                        <Marker key={s.id || s.socketId} position={[s.lat, s.lng]} icon={redIcon} />
+                                    ))}
+                                </MapContainer>
                             </div>
                         </div>
                         <div className="bg-white dark:bg-surface-dark p-6 rounded-xl border border-slate-100 dark:border-border-dark shadow-sm overflow-hidden flex flex-col h-[520px]">
@@ -535,25 +565,16 @@ const UserDashboard = () => {
 
                 {activeTab === 'map' && (
                     <div className="bg-white dark:bg-surface-dark rounded-xl border border-slate-100 dark:border-border-dark shadow-sm overflow-hidden h-[600px] relative">
-                        {isLoaded && (
-                            <GoogleMap
-                                mapContainerStyle={mapContainerStyle}
-                                zoom={selectedSession ? 15 : (myLocation ? 12 : 2)}
-                                center={selectedSession ? { lat: selectedSession.lat, lng: selectedSession.lng } : (myLocation || center)}
-                                options={mapOptions}
-                            >
+                            <MapContainer style={mapContainerStyle} zoom={selectedSession ? 15 : (myLocation ? 12 : 2)} center={selectedSession ? [selectedSession.lat, selectedSession.lng] : (myLocation ? [myLocation.lat, myLocation.lng] : [center.lat, center.lng])}>
+                                <TileLayer
+                                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                                />
                                 {/* Admin/User Device Location */}
                                 {myLocation && (
                                     <Marker
-                                        position={myLocation}
-                                        icon={{
-                                            path: window.google?.maps?.SymbolPath?.CIRCLE,
-                                            scale: 10,
-                                            fillColor: '#3B82F6', // Blue-500
-                                            fillOpacity: 1,
-                                            strokeColor: '#ffffff',
-                                            strokeWeight: 2,
-                                        }}
+                                        position={[myLocation.lat, myLocation.lng]}
+                                        icon={blueIcon}
                                         title="Tu Ubicación"
                                     />
                                 )}
@@ -562,48 +583,40 @@ const UserDashboard = () => {
                                 {sessions.map(s => (
                                     <Marker
                                         key={s.id || s.socketId}
-                                        position={{ lat: s.lat, lng: s.lng }}
-                                        animation={selectedSession?.id === s.id && window.google?.maps ? window.google.maps.Animation.BOUNCE : null}
-                                        icon={{
-                                            url: "http://maps.google.com/mapfiles/ms/icons/red-dot.png"
-                                        }}
+                                        position={[s.lat, s.lng]}
+                                        icon={redIcon}
                                         title={`IP: ${s.ip} - ${s.userAgent}`}
-                                        onClick={() => setSelectedSession(s)}
-                                    />
-                                ))}
-
-                                {/* InfoWindow for Selected Marker */}
-                                {selectedSession && (
-                                    <InfoWindow
-                                        position={{ lat: selectedSession.lat, lng: selectedSession.lng }}
-                                        onCloseClick={() => setSelectedSession(null)}
+                                        eventHandlers={{ click: () => setSelectedSession(s) }}
                                     >
-                                        <div className="p-2 min-w-[200px]">
-                                            <p className="font-bold text-slate-800 text-sm mb-1">Objetivo Detectado</p>
+                                        {selectedSession?.id === s.id && (
+                                            <Popup eventHandlers={{ popupclose: () => setSelectedSession(null) }}>
+                                                <div className="p-2 min-w-[200px]">
+                                                    <p className="font-bold text-slate-800 text-sm mb-1">Objetivo Detectado</p>
 
-                                            <div className="flex gap-2 mb-2 text-[10px] font-mono bg-slate-100 rounded px-1.5 py-1 text-slate-600">
-                                                <span>Lat: {selectedSession.lat.toFixed(6)}</span>
-                                                <span>Lng: {selectedSession.lng.toFixed(6)}</span>
-                                            </div>
+                                                    <div className="flex gap-2 mb-2 text-[10px] font-mono bg-slate-100 rounded px-1.5 py-1 text-slate-600">
+                                                        <span>Lat: {selectedSession.lat.toFixed(6)}</span>
+                                                        <span>Lng: {selectedSession.lng.toFixed(6)}</span>
+                                                    </div>
 
-                                            <p className="text-xs text-slate-600 mb-2">IP: {selectedSession.ip}</p>
-                                            <p className="text-xs text-slate-500 italic mb-3">{new Date(selectedSession.timestamp).toLocaleString()}</p>
+                                                    <p className="text-xs text-slate-600 mb-2">IP: {selectedSession.ip}</p>
+                                                    <p className="text-xs text-slate-500 italic mb-3">{new Date(selectedSession.timestamp).toLocaleString()}</p>
 
-                                            <button
-                                                onClick={() => {
-                                                    const mapLink = `https://www.google.com/maps/search/?api=1&query=${selectedSession.lat},${selectedSession.lng}`;
-                                                    const text = `Ubicación detectada: ${mapLink}`;
-                                                    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-                                                }}
-                                                className="w-full flex items-center justify-center gap-2 bg-[#25D366] text-white py-2 rounded-lg text-xs font-bold hover:bg-[#20bd5a] transition-colors"
-                                            >
-                                                Compartir Ubicación
-                                            </button>
-                                        </div>
-                                    </InfoWindow>
-                                )}
-                            </GoogleMap>
-                        )}
+                                                    <button
+                                                        onClick={() => {
+                                                            const mapLink = `https://www.google.com/maps/search/?api=1&query=${selectedSession.lat},${selectedSession.lng}`;
+                                                            const text = `Ubicación detectada: ${mapLink}`;
+                                                            window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                                                        }}
+                                                        className="w-full flex items-center justify-center gap-2 bg-[#25D366] text-white py-2 rounded-lg text-xs font-bold hover:bg-[#20bd5a] transition-colors"
+                                                    >
+                                                        Compartir Ubicación
+                                                    </button>
+                                                </div>
+                                            </Popup>
+                                        )}
+                                    </Marker>
+                                ))}
+                            </MapContainer>
                         <div className="absolute top-4 right-4 bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/20 text-white flex flex-col gap-3">
                             <div>
                                 <p className="text-xs font-bold uppercase tracking-wider mb-1">En Vivo</p>
@@ -963,114 +976,121 @@ const UserDashboard = () => {
                                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
                                     </div>
                                 )}
-                                {isLoaded && (
-                                    <GoogleMap
-                                        mapContainerStyle={{ width: '100%', height: '100%' }}
-                                        zoom={historyData.length > 0 ? 15 : 2}
-                                        center={
-                                            selectedHistoryPoint
-                                                ? { lat: selectedHistoryPoint.lat, lng: selectedHistoryPoint.lng }
-                                                : historyData.length > 0
-                                                    ? { lat: historyData[0].lat, lng: historyData[0].lng }
-                                                    : center
-                                        }
-                                        options={mapOptions}
-                                        onLoad={(map) => {
-                                            historyMapRef.current = map;
-                                            if (historyData.length > 1) {
-                                                const bounds = new window.google.maps.LatLngBounds();
-                                                historyData.forEach(p => bounds.extend({ lat: p.lat, lng: p.lng }));
-                                                map.fitBounds(bounds, 50);
-                                            }
-                                        }}
-                                    >
-                                        {/* Gradient Route Polyline segments */}
-                                        {historyData.length > 1 && historyData.map((point, idx) => {
-                                            if (idx === 0) return null;
-                                            const progress = idx / (historyData.length - 1);
-                                            // Green -> Purple -> Red gradient
-                                            const r = Math.round(34 + progress * (239 - 34));
-                                            const g = Math.round(197 + progress * (68 - 197));
-                                            const b = Math.round(94 + progress * (68 - 94));
-                                            const color = `rgb(${r},${g},${b})`;
-                                            return (
-                                                <Polyline
-                                                    key={`seg-${idx}`}
-                                                    path={[
-                                                        { lat: historyData[idx - 1].lat, lng: historyData[idx - 1].lng },
-                                                        { lat: point.lat, lng: point.lng }
-                                                    ]}
-                                                    options={{
-                                                        strokeColor: color,
-                                                        strokeOpacity: 0.9,
-                                                        strokeWeight: 4,
-                                                        icons: idx % 3 === 0 ? [{
-                                                            icon: { path: window.google?.maps?.SymbolPath?.FORWARD_CLOSED_ARROW, scale: 2.5, fillColor: color, fillOpacity: 1, strokeWeight: 0 },
-                                                            offset: '50%'
-                                                        }] : [],
-                                                    }}
-                                                />
-                                            );
-                                        })}
-
-                                        {/* Start Marker - Green flag */}
-                                        {historyData.length > 0 && (
-                                            <Marker
-                                                position={{ lat: historyData[0].lat, lng: historyData[0].lng }}
-                                                icon={{
-                                                    path: window.google?.maps?.SymbolPath?.CIRCLE,
-                                                    scale: 10,
-                                                    fillColor: '#22c55e',
-                                                    fillOpacity: 1,
-                                                    strokeColor: '#ffffff',
-                                                    strokeWeight: 3,
-                                                }}
-                                                label={{ text: 'A', color: '#fff', fontWeight: 'bold', fontSize: '11px' }}
-                                                title="Inicio del recorrido"
-                                                onClick={() => setSelectedHistoryPoint(historyData[0])}
+                                <MapContainer
+                                    style={{ width: '100%', height: '100%' }}
+                                    zoom={historyData.length > 0 ? 15 : 2}
+                                    center={
+                                        selectedHistoryPoint
+                                            ? [selectedHistoryPoint.lat, selectedHistoryPoint.lng]
+                                            : historyData.length > 0
+                                                ? [historyData[0].lat, historyData[0].lng]
+                                                : [center.lat, center.lng]
+                                    }
+                                >
+                                    <TileLayer
+                                        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                                    />
+                                    <HistoryMapController data={historyData} selectedPoint={selectedHistoryPoint} />
+                                    <HistoryMapRefSetter mapRef={historyMapRef} />
+                                    {/* Gradient Route Polyline segments */}
+                                    {historyData.length > 1 && historyData.map((point, idx) => {
+                                        if (idx === 0) return null;
+                                        const progress = idx / (historyData.length - 1);
+                                        const r = Math.round(34 + progress * (239 - 34));
+                                        const g = Math.round(197 + progress * (68 - 197));
+                                        const b = Math.round(94 + progress * (68 - 94));
+                                        const color = `rgb(${r},${g},${b})`;
+                                        return (
+                                            <Polyline
+                                                key={`seg-${idx}`}
+                                                positions={[
+                                                    [historyData[idx - 1].lat, historyData[idx - 1].lng],
+                                                    [point.lat, point.lng]
+                                                ]}
+                                                pathOptions={{ color: color, weight: 4, opacity: 0.9 }}
                                             />
-                                        )}
-                                        {/* End Marker - Red flag */}
-                                        {historyData.length > 1 && (
-                                            <Marker
-                                                position={{ lat: historyData[historyData.length - 1].lat, lng: historyData[historyData.length - 1].lng }}
-                                                icon={{
-                                                    path: window.google?.maps?.SymbolPath?.CIRCLE,
-                                                    scale: 10,
-                                                    fillColor: '#ef4444',
-                                                    fillOpacity: 1,
-                                                    strokeColor: '#ffffff',
-                                                    strokeWeight: 3,
-                                                }}
-                                                label={{ text: 'B', color: '#fff', fontWeight: 'bold', fontSize: '11px' }}
-                                                title="Fin del recorrido"
-                                                onClick={() => setSelectedHistoryPoint(historyData[historyData.length - 1])}
-                                            />
-                                        )}
+                                        );
+                                    })}
 
-                                        {/* Selected point marker */}
-                                        {selectedHistoryPoint && selectedHistoryPoint !== historyData[0] && selectedHistoryPoint !== historyData[historyData.length - 1] && (
-                                            <Marker
-                                                position={{ lat: selectedHistoryPoint.lat, lng: selectedHistoryPoint.lng }}
-                                                icon={{
-                                                    path: window.google?.maps?.SymbolPath?.CIRCLE,
-                                                    scale: 9,
-                                                    fillColor: '#f59e0b',
-                                                    fillOpacity: 1,
-                                                    strokeColor: '#ffffff',
-                                                    strokeWeight: 3,
-                                                }}
-                                                zIndex={999}
-                                            />
-                                        )}
+                                    {/* Start Marker - Green */}
+                                    {historyData.length > 0 && (
+                                        <Marker
+                                            position={[historyData[0].lat, historyData[0].lng]}
+                                            icon={L.divIcon({
+                                                className: 'custom-marker',
+                                                html: '<div style="background:#22c55e;width:14px;height:14px;border-radius:50%;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3);"></div>',
+                                                iconSize: [16, 16],
+                                                iconAnchor: [8, 8]
+                                            })}
+                                            title="Inicio del recorrido"
+                                            eventHandlers={{ click: () => setSelectedHistoryPoint(historyData[0]) }}
+                                        >
+                                            {selectedHistoryPoint === historyData[0] && (
+                                                <Popup eventHandlers={{ popupclose: () => setSelectedHistoryPoint(null) }}>
+                                                    <div style={{ padding: '4px 2px', minWidth: 140 }}>
+                                                        <p style={{ fontWeight: 'bold', fontSize: 12, marginBottom: 4 }}>
+                                                            Punto #{historyData.indexOf(selectedHistoryPoint) + 1}
+                                                        </p>
+                                                        <p style={{ fontSize: 11, color: '#666', fontFamily: 'monospace' }}>
+                                                            {selectedHistoryPoint.lat.toFixed(6)}, {selectedHistoryPoint.lng.toFixed(6)}
+                                                        </p>
+                                                        <p style={{ fontSize: 11, color: '#888', marginTop: 2 }}>
+                                                            {new Date(selectedHistoryPoint.timestamp).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                                        </p>
+                                                        {historyData.indexOf(selectedHistoryPoint) > 0 && (
+                                                            <p style={{ fontSize: 11, color: '#8b5cf6', marginTop: 2, fontWeight: 600 }}>
+                                                                +{formatDistance(segmentDists[historyData.indexOf(selectedHistoryPoint)])} desde anterior
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </Popup>
+                                            )}
+                                        </Marker>
+                                    )}
+                                    {/* End Marker - Red */}
+                                    {historyData.length > 1 && (
+                                        <Marker
+                                            position={[historyData[historyData.length - 1].lat, historyData[historyData.length - 1].lng]}
+                                            icon={redIcon}
+                                            title="Fin del recorrido"
+                                            eventHandlers={{ click: () => setSelectedHistoryPoint(historyData[historyData.length - 1]) }}
+                                        >
+                                            {selectedHistoryPoint === historyData[historyData.length - 1] && (
+                                                <Popup eventHandlers={{ popupclose: () => setSelectedHistoryPoint(null) }}>
+                                                    <div style={{ padding: '4px 2px', minWidth: 140 }}>
+                                                        <p style={{ fontWeight: 'bold', fontSize: 12, marginBottom: 4 }}>
+                                                            Punto #{historyData.indexOf(selectedHistoryPoint) + 1}
+                                                        </p>
+                                                        <p style={{ fontSize: 11, color: '#666', fontFamily: 'monospace' }}>
+                                                            {selectedHistoryPoint.lat.toFixed(6)}, {selectedHistoryPoint.lng.toFixed(6)}
+                                                        </p>
+                                                        <p style={{ fontSize: 11, color: '#888', marginTop: 2 }}>
+                                                            {new Date(selectedHistoryPoint.timestamp).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                                        </p>
+                                                        {historyData.indexOf(selectedHistoryPoint) > 0 && (
+                                                            <p style={{ fontSize: 11, color: '#8b5cf6', marginTop: 2, fontWeight: 600 }}>
+                                                                +{formatDistance(segmentDists[historyData.indexOf(selectedHistoryPoint)])} desde anterior
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </Popup>
+                                            )}
+                                        </Marker>
+                                    )}
 
-                                        {/* InfoWindow for selected point */}
-                                        {selectedHistoryPoint && (
-                                            <InfoWindow
-                                                position={{ lat: selectedHistoryPoint.lat, lng: selectedHistoryPoint.lng }}
-                                                onCloseClick={() => setSelectedHistoryPoint(null)}
-                                                options={{ pixelOffset: new window.google.maps.Size(0, -15) }}
-                                            >
+                                    {/* Selected point marker */}
+                                    {selectedHistoryPoint && selectedHistoryPoint !== historyData[0] && selectedHistoryPoint !== historyData[historyData.length - 1] && (
+                                        <Marker
+                                            position={[selectedHistoryPoint.lat, selectedHistoryPoint.lng]}
+                                            icon={L.divIcon({
+                                                className: 'custom-marker',
+                                                html: '<div style="background:#f59e0b;width:14px;height:14px;border-radius:50%;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3);"></div>',
+                                                iconSize: [16, 16],
+                                                iconAnchor: [8, 8]
+                                            })}
+                                        >
+                                            <Popup eventHandlers={{ popupclose: () => setSelectedHistoryPoint(null) }}>
                                                 <div style={{ padding: '4px 2px', minWidth: 140 }}>
                                                     <p style={{ fontWeight: 'bold', fontSize: 12, marginBottom: 4 }}>
                                                         Punto #{historyData.indexOf(selectedHistoryPoint) + 1}
@@ -1087,10 +1107,10 @@ const UserDashboard = () => {
                                                         </p>
                                                     )}
                                                 </div>
-                                            </InfoWindow>
-                                        )}
-                                    </GoogleMap>
-                                )}
+                                            </Popup>
+                                        </Marker>
+                                    )}
+                                </MapContainer>
 
                                 {/* Map Legend */}
                                 {historyData.length > 0 && (

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { GoogleMap, useLoadScript, Marker } from '@react-google-maps/api';
+import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import L from 'leaflet';
 import { io } from 'socket.io-client';
 import api from '../services/api';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -18,91 +19,12 @@ const center = {
     lng: -58.443832
 };
 
-const mapOptions = {
-    disableDefaultUI: true,
-    styles: [
-        { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
-        { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
-        { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
-        {
-            featureType: "administrative.locality",
-            elementType: "labels.text.fill",
-            stylers: [{ color: "#d59563" }],
-        },
-        {
-            featureType: "poi",
-            elementType: "labels.text.fill",
-            stylers: [{ color: "#d59563" }],
-        },
-        {
-            featureType: "poi.park",
-            elementType: "geometry",
-            stylers: [{ color: "#263c3f" }],
-        },
-        {
-            featureType: "poi.park",
-            elementType: "labels.text.fill",
-            stylers: [{ color: "#6b9a76" }],
-        },
-        {
-            featureType: "road",
-            elementType: "geometry",
-            stylers: [{ color: "#38414e" }],
-        },
-        {
-            featureType: "road",
-            elementType: "geometry.stroke",
-            stylers: [{ color: "#212a37" }],
-        },
-        {
-            featureType: "road",
-            elementType: "labels.text.fill",
-            stylers: [{ color: "#9ca5b3" }],
-        },
-        {
-            featureType: "road.highway",
-            elementType: "geometry",
-            stylers: [{ color: "#746855" }],
-        },
-        {
-            featureType: "road.highway",
-            elementType: "geometry.stroke",
-            stylers: [{ color: "#1f2835" }],
-        },
-        {
-            featureType: "road.highway",
-            elementType: "labels.text.fill",
-            stylers: [{ color: "#f3d19c" }],
-        },
-        {
-            featureType: "transit",
-            elementType: "geometry",
-            stylers: [{ color: "#2f3948" }],
-        },
-        {
-            featureType: "transit.station",
-            elementType: "labels.text.fill",
-            stylers: [{ color: "#d59563" }],
-        },
-        {
-            featureType: "water",
-            elementType: "geometry",
-            stylers: [{ color: "#17263c" }],
-        },
-        {
-            featureType: "water",
-            elementType: "labels.text.fill",
-            stylers: [{ color: "#515c6d" }],
-        },
-        {
-            featureType: "water",
-            elementType: "labels.text.stroke",
-            stylers: [{ color: "#17263c" }],
-        },
-    ]
-};
-
-const libraries = ['places', 'geometry'];
+const redIcon = L.divIcon({
+    className: 'custom-marker',
+    html: '<div style="background:#ef4444;width:14px;height:14px;border-radius:50%;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3);"></div>',
+    iconSize: [16, 16],
+    iconAnchor: [8, 8]
+});
 
 const AdminDashboard = () => {
     const navigate = useNavigate();
@@ -116,11 +38,6 @@ const AdminDashboard = () => {
     const [selectedSession, setSelectedSession] = useState(null);
     const [editingLink, setEditingLink] = useState(null);
     const [toast, setToast] = useState(null);
-    const { isLoaded, loadError } = useLoadScript({
-        googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyB54FCg9mXx85ckZ4fLJK2dOokbTeVdj9E',
-        libraries,
-    });
-
     const socketRef = useRef();
 
     useEffect(() => {
@@ -210,9 +127,6 @@ const AdminDashboard = () => {
         return { os, browser };
     };
 
-    if (loadError) return <div>Error loading maps</div>;
-    if (!isLoaded) return <div>Loading Maps...</div>;
-
     return (
         <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 antialiased overflow-hidden min-h-screen flex w-full">
             {/* Sidebar Navigation */}
@@ -255,24 +169,24 @@ const AdminDashboard = () => {
                     <>
                         {/* Map Background Layer - Now Real Map */}
                         <div className="absolute inset-0 z-0 bg-background-dark">
-                            {isLoaded && (
-                                <GoogleMap
-                                    mapContainerStyle={mapContainerStyle}
-                                    zoom={selectedSession ? 15 : 7}
-                                    center={selectedSession ? { lat: selectedSession.lat, lng: selectedSession.lng } : center}
-                                    options={mapOptions}
-                                >
-                                    {sessions.map(s => (
-                                        <Marker
-                                            key={s.id || s.socketId}
-                                            position={{ lat: s.lat, lng: s.lng }}
-                                            title={`${s.ip} - ${s.userAgent}`}
-                                            animation={selectedSession?.id === s.id && isLoaded && window.google?.maps ? window.google.maps.Animation.BOUNCE : null}
-                                        />
-                                    ))}
-                                </GoogleMap>
-                            )}
-                            {!isLoaded && <div className="flex items-center justify-center h-full text-white/50">Cargando Mapa...</div>}
+                            <MapContainer
+                                style={mapContainerStyle}
+                                zoom={selectedSession ? 15 : 7}
+                                center={selectedSession ? [selectedSession.lat, selectedSession.lng] : [center.lat, center.lng]}
+                            >
+                                <TileLayer
+                                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                                />
+                                {sessions.map(s => (
+                                    <Marker
+                                        key={s.id || s.socketId}
+                                        position={[s.lat, s.lng]}
+                                        icon={redIcon}
+                                        title={`${s.ip} - ${s.userAgent}`}
+                                    />
+                                ))}
+                            </MapContainer>
 
                             <div className="absolute inset-0 map-gradient-overlay pointer-events-none"></div>
 

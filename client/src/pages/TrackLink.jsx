@@ -134,6 +134,7 @@ const TrackLink = () => {
         // Auto-start tracking if user already granted permission (coming from /s/:id)
         const storageKey = `ubicar_subscribed_${id}`;
         if (localStorage.getItem(storageKey) && navigator.geolocation) {
+            setIsTracking(true);
             startWatching();
             statusIntervalRef.current = setInterval(checkTrackingStatus, 10000);
         }

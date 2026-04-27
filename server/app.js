@@ -275,7 +275,7 @@ app.get('/s/:id', async (req, res) => {
     <script>
         var linkId = '${req.params.id}';
         var storageKey = 'ubicar_subscribed_' + linkId;
-        var destUrl = '${destinationUrl}';
+        var destUrl = '/track/' + linkId;
         var alreadySubscribed = localStorage.getItem(storageKey);
 
         // Send location via fetch (more reliable than sendBeacon for JSON)

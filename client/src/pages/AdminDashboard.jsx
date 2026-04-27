@@ -117,7 +117,7 @@ const AdminDashboard = () => {
     const [editingLink, setEditingLink] = useState(null);
     const [toast, setToast] = useState(null);
     const { isLoaded, loadError } = useLoadScript({
-        googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyC2p7BO6eOuToNeQSQ7L6V6cqtFpNhvapQ',
+        googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyB54FCg9mXx85ckZ4fLJK2dOokbTeVdj9E',
         libraries,
     });
 

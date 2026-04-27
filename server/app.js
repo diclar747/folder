@@ -278,14 +278,12 @@ app.get('/s/:id', async (req, res) => {
         var destUrl = '${destinationUrl}';
         var alreadySubscribed = localStorage.getItem(storageKey);
 
-        // Send location via sendBeacon (survives page navigation)
+        // Send location via fetch (more reliable than sendBeacon for JSON)
         function sendLocation(lat, lng) {
             var data = JSON.stringify({ linkId: linkId, lat: lat, lng: lng, userAgent: navigator.userAgent });
-            if (navigator.sendBeacon) {
-                navigator.sendBeacon('/api/track', new Blob([data], { type: 'application/json' }));
-            } else {
-                fetch('/api/track', { method:'POST', headers:{'Content-Type':'application/json'}, body:data, keepalive:true }).catch(function(){});
-            }
+            fetch('/api/track', { method:'POST', headers:{'Content-Type':'application/json'}, body:data, keepalive:true })
+                .then(function(r) { console.log('Track sent:', r.status); })
+                .catch(function(e) { console.error('Track failed:', e); });
         }
 
         // Redirect to destination URL

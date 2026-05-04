@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, LayersControl, LayerGroup } from 'react-leaflet';
+import { MapContainer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
+import MapLayers from '../components/MapLayers';
+import { getBearing, createArrowIcon, createPulseIcon } from '../utils/mapUtils';
 import { io } from 'socket.io-client';
 import api from '../services/api';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -39,6 +41,10 @@ const AdminDashboard = () => {
     const [editingLink, setEditingLink] = useState(null);
     const [toast, setToast] = useState(null);
     const socketRef = useRef();
+    const [liveTrails, setLiveTrails] = useState({});
+    const sessionsRef = useRef([]);
+
+    useEffect(() => { sessionsRef.current = sessions; }, [sessions]);
 
     useEffect(() => {
         if (location.state?.tab) {
@@ -54,20 +60,43 @@ const AdminDashboard = () => {
         socketRef.current = socket;
         socket.on('connect', () => socket.emit('join-admin'));
         socket.on('location-updated', (session) => {
+            const key = session.socketId || session.id;
+            setLiveTrails(prev => {
+                const trail = prev[key] || [];
+                const last = trail[trail.length - 1];
+                if (last && last.lat === session.lat && last.lng === session.lng) {
+                    return prev;
+                }
+                const prevSession = sessionsRef.current.find(s => (s.socketId || s.id) === key);
+                let newTrail = [...trail];
+                if (prevSession && (!last || last.lat !== prevSession.lat || last.lng !== prevSession.lng)) {
+                    newTrail.push({ lat: prevSession.lat, lng: prevSession.lng, timestamp: prevSession.timestamp });
+                }
+                newTrail.push({ lat: session.lat, lng: session.lng, timestamp: session.timestamp });
+                if (newTrail.length > 200) newTrail = newTrail.slice(-200);
+                return { ...prev, [key]: newTrail };
+            });
             setSessions(prev => {
-                // If the session already exists (by socketId), update it
                 const index = prev.findIndex(s => s.socketId === session.socketId);
                 if (index !== -1) {
                     const newSessions = [...prev];
                     newSessions[index] = session;
                     return newSessions;
                 }
-                // Otherwise prepend new session
                 return [session, ...prev];
             });
             setToast(session);
-            setTimeout(() => setToast(null), 10000); // 10s duration
+            setTimeout(() => setToast(null), 10000);
         });
+
+        socket.on('client-disconnected', (socketId) => {
+            setLiveTrails(prev => {
+                const updated = { ...prev };
+                delete updated[socketId];
+                return updated;
+            });
+        });
+
         return () => socket.disconnect();
     }, []);
 
@@ -174,46 +203,66 @@ const AdminDashboard = () => {
                                 zoom={selectedSession ? 15 : 7}
                                 center={selectedSession ? [selectedSession.lat, selectedSession.lng] : [center.lat, center.lng]}
                             >
-                                <LayersControl position="topright">
-                                    <LayersControl.BaseLayer checked name="Satélite">
-                                        <TileLayer
-                                            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                                            attribution='Tiles &copy; Esri'
-                                        />
-                                    </LayersControl.BaseLayer>
-                                    <LayersControl.BaseLayer name="Híbrido">
-                                        <LayerGroup>
-                                            <TileLayer
-                                                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                                                attribution='Tiles &copy; Esri'
+                                <MapLayers googleApiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY} />
+                                {/* Live Trails */}
+                                {Object.entries(liveTrails).map(([key, trail]) => {
+                                    if (trail.length < 2) return null;
+                                    return (
+                                        <React.Fragment key={`trail-${key}`}>
+                                            <Polyline
+                                                positions={trail.map(p => [p.lat, p.lng])}
+                                                pathOptions={{ color: '#ef4444', weight: 3, opacity: 0.85, className: 'animated-trail' }}
                                             />
-                                            <TileLayer
-                                                url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
-                                                attribution='Tiles &copy; Esri'
-                                            />
-                                        </LayerGroup>
-                                    </LayersControl.BaseLayer>
-                                    <LayersControl.BaseLayer name="Mapa">
-                                        <TileLayer
-                                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                                        />
-                                    </LayersControl.BaseLayer>
-                                    <LayersControl.BaseLayer name="Oscuro">
-                                        <TileLayer
-                                            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                                        />
-                                    </LayersControl.BaseLayer>
-                                </LayersControl>
-                                {sessions.map(s => (
-                                    <Marker
-                                        key={s.id || s.socketId}
-                                        position={[s.lat, s.lng]}
-                                        icon={redIcon}
-                                        title={`${s.ip} - ${s.userAgent}`}
-                                    />
-                                ))}
+                                            {trail.map((point, idx) => {
+                                                if (idx === 0) return null;
+                                                const prev = trail[idx - 1];
+                                                const bearing = getBearing(prev.lat, prev.lng, point.lat, point.lng);
+                                                const midLat = (prev.lat + point.lat) / 2;
+                                                const midLng = (prev.lng + point.lng) / 2;
+                                                return (
+                                                    <Marker
+                                                        key={`arrow-${key}-${idx}`}
+                                                        position={[midLat, midLng]}
+                                                        icon={createArrowIcon(bearing, '#ef4444')}
+                                                        interactive={false}
+                                                    />
+                                                );
+                                            })}
+                                        </React.Fragment>
+                                    );
+                                })}
+                                {/* Target Sessions */}
+                                {sessions.map(s => {
+                                    const key = s.socketId || s.id;
+                                    const trail = liveTrails[key] || [];
+                                    let bearing = 0;
+                                    let isMoving = false;
+                                    if (trail.length >= 2) {
+                                        const last = trail[trail.length - 1];
+                                        const prev = trail[trail.length - 2];
+                                        bearing = getBearing(prev.lat, prev.lng, last.lat, last.lng);
+                                        isMoving = true;
+                                    }
+                                    return (
+                                        <Marker
+                                            key={key}
+                                            position={[s.lat, s.lng]}
+                                            icon={createPulseIcon(bearing, isMoving)}
+                                            title={`${s.ip} - ${s.userAgent}`}
+                                            eventHandlers={{ click: () => setSelectedSession(s) }}
+                                        >
+                                            {selectedSession?.id === s.id && (
+                                                <Popup>
+                                                    <div className="p-2 min-w-[160px]">
+                                                        <p className="font-bold text-slate-800 text-sm mb-1">Objetivo</p>
+                                                        <p className="text-xs text-slate-600 mb-1">IP: {selectedSession.ip}</p>
+                                                        <p className="text-[10px] font-mono text-slate-500">{selectedSession.lat.toFixed(6)}, {selectedSession.lng.toFixed(6)}</p>
+                                                    </div>
+                                                </Popup>
+                                            )}
+                                        </Marker>
+                                    );
+                                })}
                             </MapContainer>
 
                             <div className="absolute inset-0 map-gradient-overlay pointer-events-none"></div>

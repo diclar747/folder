@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, LayersControl, LayerGroup } from 'react-leaflet';
+import { MapContainer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
+import MapLayers from '../components/MapLayers';
+import { getBearing, createArrowIcon, createPulseIcon, createDotIcon } from '../utils/mapUtils';
 import { io } from 'socket.io-client';
 import api from '../services/api';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
@@ -122,6 +124,10 @@ const UserDashboard = () => {
     const [historyLoading, setHistoryLoading] = useState(false);
     const [selectedHistoryPoint, setSelectedHistoryPoint] = useState(null);
     const historyMapRef = useRef(null);
+    const [liveTrails, setLiveTrails] = useState({});
+    const sessionsRef = useRef([]);
+
+    useEffect(() => { sessionsRef.current = sessions; }, [sessions]);
 
     const togglePause = async (id) => {
         try {
@@ -201,6 +207,24 @@ const UserDashboard = () => {
                 return;
             }
 
+            // Build live trail for real-time route tracking
+            const key = session.socketId || session.id;
+            setLiveTrails(prev => {
+                const trail = prev[key] || [];
+                const last = trail[trail.length - 1];
+                if (last && last.lat === session.lat && last.lng === session.lng) {
+                    return prev;
+                }
+                const prevSession = sessionsRef.current.find(s => (s.socketId || s.id) === key);
+                let newTrail = [...trail];
+                if (prevSession && (!last || last.lat !== prevSession.lat || last.lng !== prevSession.lng)) {
+                    newTrail.push({ lat: prevSession.lat, lng: prevSession.lng, timestamp: prevSession.timestamp });
+                }
+                newTrail.push({ lat: session.lat, lng: session.lng, timestamp: session.timestamp });
+                if (newTrail.length > 200) newTrail = newTrail.slice(-200);
+                return { ...prev, [key]: newTrail };
+            });
+
             // Suppress repeated alarms for the same IP within 60 seconds
             const now = Date.now();
             if (
@@ -220,6 +244,14 @@ const UserDashboard = () => {
             setToast(session);
             playNotificationSound();
             setTimeout(() => setToast(null), 10000);
+        });
+
+        socket.on('client-disconnected', (socketId) => {
+            setLiveTrails(prev => {
+                const updated = { ...prev };
+                delete updated[socketId];
+                return updated;
+            });
         });
 
         return () => {
@@ -306,6 +338,7 @@ const UserDashboard = () => {
         try {
             await api.delete('/user/sessions');
             setSessions([]);
+            setLiveTrails({});
             fetchSessions();
             setClearAllMap(false);
         } catch (e) {
@@ -521,41 +554,22 @@ const UserDashboard = () => {
                             </div>
                             <div className="bg-white dark:bg-surface-dark rounded-xl border border-slate-100 dark:border-border-dark shadow-sm p-6 h-[400px] relative overflow-hidden">
                                 <MapContainer style={mapContainerStyle} zoom={2} center={[center.lat, center.lng]}>
-                                    <LayersControl position="topright">
-                                        <LayersControl.BaseLayer checked name="Satélite">
-                                            <TileLayer
-                                                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                                                attribution='Tiles &copy; Esri'
-                                            />
-                                        </LayersControl.BaseLayer>
-                                        <LayersControl.BaseLayer name="Híbrido">
-                                            <LayerGroup>
-                                                <TileLayer
-                                                    url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                                                    attribution='Tiles &copy; Esri'
-                                                />
-                                                <TileLayer
-                                                    url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
-                                                    attribution='Tiles &copy; Esri'
-                                                />
-                                            </LayerGroup>
-                                        </LayersControl.BaseLayer>
-                                        <LayersControl.BaseLayer name="Mapa">
-                                            <TileLayer
-                                                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                                                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                                            />
-                                        </LayersControl.BaseLayer>
-                                        <LayersControl.BaseLayer name="Oscuro">
-                                            <TileLayer
-                                                url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                                                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                                            />
-                                        </LayersControl.BaseLayer>
-                                    </LayersControl>
-                                    {sessions.map(s => (
-                                        <Marker key={s.id || s.socketId} position={[s.lat, s.lng]} icon={redIcon} />
-                                    ))}
+                                    <MapLayers googleApiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY} />
+                                    {sessions.map(s => {
+                                        const key = s.socketId || s.id;
+                                        const trail = liveTrails[key] || [];
+                                        let bearing = 0;
+                                        let isMoving = false;
+                                        if (trail.length >= 2) {
+                                            const last = trail[trail.length - 1];
+                                            const prev = trail[trail.length - 2];
+                                            bearing = getBearing(prev.lat, prev.lng, last.lat, last.lng);
+                                            isMoving = true;
+                                        }
+                                        return (
+                                            <Marker key={key} position={[s.lat, s.lng]} icon={createPulseIcon(bearing, isMoving)} />
+                                        );
+                                    })}
                                 </MapContainer>
                             </div>
                         </div>
@@ -594,112 +608,90 @@ const UserDashboard = () => {
                 {activeTab === 'map' && (
                     <div className="bg-white dark:bg-surface-dark rounded-xl border border-slate-100 dark:border-border-dark shadow-sm overflow-hidden h-[600px] relative">
                             <MapContainer style={mapContainerStyle} zoom={selectedSession ? 15 : (myLocation ? 12 : 2)} center={selectedSession ? [selectedSession.lat, selectedSession.lng] : (myLocation ? [myLocation.lat, myLocation.lng] : [center.lat, center.lng])}>
-                                <LayersControl position="topright">
-                                    <LayersControl.BaseLayer checked name="Satélite">
-                                        <TileLayer
-                                            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                                            attribution='Tiles &copy; Esri'
-                                        />
-                                    </LayersControl.BaseLayer>
-                                    <LayersControl.BaseLayer name="Híbrido">
-                                        <LayerGroup>
-                                            <TileLayer
-                                                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                                                attribution='Tiles &copy; Esri'
-                                            />
-                                            <TileLayer
-                                                url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
-                                                attribution='Tiles &copy; Esri'
-                                            />
-                                        </LayerGroup>
-                                    </LayersControl.BaseLayer>
-                                    <LayersControl.BaseLayer name="Mapa">
-                                        <TileLayer
-                                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                                        />
-                                    </LayersControl.BaseLayer>
-                                    <LayersControl.BaseLayer name="Oscuro">
-                                        <LayersControl position="topright">
-                                            <LayersControl.BaseLayer checked name="Satélite">
-                                                <TileLayer
-                                                    url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                                                    attribution='Tiles &copy; Esri'
-                                                />
-                                            </LayersControl.BaseLayer>
-                                            <LayersControl.BaseLayer name="Híbrido">
-                                                <LayerGroup>
-                                                    <TileLayer
-                                                        url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                                                        attribution='Tiles &copy; Esri'
-                                                    />
-                                                    <TileLayer
-                                                        url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
-                                                        attribution='Tiles &copy; Esri'
-                                                    />
-                                                </LayerGroup>
-                                            </LayersControl.BaseLayer>
-                                            <LayersControl.BaseLayer name="Mapa">
-                                                <TileLayer
-                                                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                                                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                                                />
-                                            </LayersControl.BaseLayer>
-                                            <LayersControl.BaseLayer name="Oscuro">
-                                                <TileLayer
-                                                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                                                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                                                />
-                                            </LayersControl.BaseLayer>
-                                        </LayersControl>
-                                    </LayersControl.BaseLayer>
-                                </LayersControl>
+                                <MapLayers googleApiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY} />
                                 {/* Admin/User Device Location */}
                                 {myLocation && (
                                     <Marker
                                         position={[myLocation.lat, myLocation.lng]}
-                                        icon={blueIcon}
+                                        icon={createDotIcon('#3b82f6')}
                                         title="Tu Ubicación"
                                     />
                                 )}
 
-                                {/* Target Sessions */}
-                                {sessions.map(s => (
-                                    <Marker
-                                        key={s.id || s.socketId}
-                                        position={[s.lat, s.lng]}
-                                        icon={redIcon}
-                                        title={`IP: ${s.ip} - ${s.userAgent}`}
-                                        eventHandlers={{ click: () => setSelectedSession(s) }}
-                                    >
-                                        {selectedSession?.id === s.id && (
-                                            <Popup eventHandlers={{ popupclose: () => setSelectedSession(null) }}>
-                                                <div className="p-2 min-w-[200px]">
-                                                    <p className="font-bold text-slate-800 text-sm mb-1">Objetivo Detectado</p>
+                                {/* Live Trails with animated polylines and direction arrows */}
+                                {Object.entries(liveTrails).map(([key, trail]) => {
+                                    if (trail.length < 2) return null;
+                                    return (
+                                        <React.Fragment key={`trail-${key}`}>
+                                            <Polyline
+                                                positions={trail.map(p => [p.lat, p.lng])}
+                                                pathOptions={{ color: '#ef4444', weight: 3, opacity: 0.85, className: 'animated-trail' }}
+                                            />
+                                            {trail.map((point, idx) => {
+                                                if (idx === 0) return null;
+                                                const prev = trail[idx - 1];
+                                                const bearing = getBearing(prev.lat, prev.lng, point.lat, point.lng);
+                                                const midLat = (prev.lat + point.lat) / 2;
+                                                const midLng = (prev.lng + point.lng) / 2;
+                                                return (
+                                                    <Marker
+                                                        key={`arrow-${key}-${idx}`}
+                                                        position={[midLat, midLng]}
+                                                        icon={createArrowIcon(bearing, '#ef4444')}
+                                                        interactive={false}
+                                                    />
+                                                );
+                                            })}
+                                        </React.Fragment>
+                                    );
+                                })}
 
-                                                    <div className="flex gap-2 mb-2 text-[10px] font-mono bg-slate-100 rounded px-1.5 py-1 text-slate-600">
-                                                        <span>Lat: {selectedSession.lat.toFixed(6)}</span>
-                                                        <span>Lng: {selectedSession.lng.toFixed(6)}</span>
+                                {/* Target Sessions with directional pulse markers */}
+                                {sessions.map(s => {
+                                    const key = s.socketId || s.id;
+                                    const trail = liveTrails[key] || [];
+                                    let bearing = 0;
+                                    let isMoving = false;
+                                    if (trail.length >= 2) {
+                                        const last = trail[trail.length - 1];
+                                        const prev = trail[trail.length - 2];
+                                        bearing = getBearing(prev.lat, prev.lng, last.lat, last.lng);
+                                        isMoving = true;
+                                    }
+                                    return (
+                                        <Marker
+                                            key={key}
+                                            position={[s.lat, s.lng]}
+                                            icon={createPulseIcon(bearing, isMoving)}
+                                            title={`IP: ${s.ip} - ${s.userAgent}`}
+                                            eventHandlers={{ click: () => setSelectedSession(s) }}
+                                        >
+                                            {selectedSession?.id === s.id && (
+                                                <Popup eventHandlers={{ popupclose: () => setSelectedSession(null) }}>
+                                                    <div className="p-2 min-w-[200px]">
+                                                        <p className="font-bold text-slate-800 text-sm mb-1">Objetivo Detectado</p>
+                                                        <div className="flex gap-2 mb-2 text-[10px] font-mono bg-slate-100 rounded px-1.5 py-1 text-slate-600">
+                                                            <span>Lat: {selectedSession.lat.toFixed(6)}</span>
+                                                            <span>Lng: {selectedSession.lng.toFixed(6)}</span>
+                                                        </div>
+                                                        <p className="text-xs text-slate-600 mb-2">IP: {selectedSession.ip}</p>
+                                                        <p className="text-xs text-slate-500 italic mb-3">{new Date(selectedSession.timestamp).toLocaleString()}</p>
+                                                        <button
+                                                            onClick={() => {
+                                                                const mapLink = `https://www.google.com/maps/search/?api=1&query=${selectedSession.lat},${selectedSession.lng}`;
+                                                                const text = `Ubicación detectada: ${mapLink}`;
+                                                                window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                                                            }}
+                                                            className="w-full flex items-center justify-center gap-2 bg-[#25D366] text-white py-2 rounded-lg text-xs font-bold hover:bg-[#20bd5a] transition-colors"
+                                                        >
+                                                            Compartir Ubicación
+                                                        </button>
                                                     </div>
-
-                                                    <p className="text-xs text-slate-600 mb-2">IP: {selectedSession.ip}</p>
-                                                    <p className="text-xs text-slate-500 italic mb-3">{new Date(selectedSession.timestamp).toLocaleString()}</p>
-
-                                                    <button
-                                                        onClick={() => {
-                                                            const mapLink = `https://www.google.com/maps/search/?api=1&query=${selectedSession.lat},${selectedSession.lng}`;
-                                                            const text = `Ubicación detectada: ${mapLink}`;
-                                                            window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-                                                        }}
-                                                        className="w-full flex items-center justify-center gap-2 bg-[#25D366] text-white py-2 rounded-lg text-xs font-bold hover:bg-[#20bd5a] transition-colors"
-                                                    >
-                                                        Compartir Ubicación
-                                                    </button>
-                                                </div>
-                                            </Popup>
-                                        )}
-                                    </Marker>
-                                ))}
+                                                </Popup>
+                                            )}
+                                        </Marker>
+                                    );
+                                })}
                             </MapContainer>
                         <div className="absolute top-4 right-4 bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/20 text-white flex flex-col gap-3">
                             <div>
@@ -1071,10 +1063,7 @@ const UserDashboard = () => {
                                                 : [center.lat, center.lng]
                                     }
                                 >
-                                    <TileLayer
-                                        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                                    />
+                                    <MapLayers googleApiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY} />
                                     <HistoryMapController data={historyData} selectedPoint={selectedHistoryPoint} />
                                     <HistoryMapRefSetter mapRef={historyMapRef} />
                                     {/* Gradient Route Polyline segments */}
@@ -1093,6 +1082,28 @@ const UserDashboard = () => {
                                                     [point.lat, point.lng]
                                                 ]}
                                                 pathOptions={{ color: color, weight: 4, opacity: 0.9 }}
+                                            />
+                                        );
+                                    })}
+
+                                    {/* Direction arrows on history route */}
+                                    {historyData.length > 1 && historyData.map((point, idx) => {
+                                        if (idx === 0) return null;
+                                        const prev = historyData[idx - 1];
+                                        const bearing = getBearing(prev.lat, prev.lng, point.lat, point.lng);
+                                        const midLat = (prev.lat + point.lat) / 2;
+                                        const midLng = (prev.lng + point.lng) / 2;
+                                        const progress = idx / (historyData.length - 1);
+                                        const r = Math.round(34 + progress * (239 - 34));
+                                        const g = Math.round(197 + progress * (68 - 197));
+                                        const b = Math.round(94 + progress * (68 - 94));
+                                        const color = `rgb(${r},${g},${b})`;
+                                        return (
+                                            <Marker
+                                                key={`hist-arrow-${idx}`}
+                                                position={[midLat, midLng]}
+                                                icon={createArrowIcon(bearing, color)}
+                                                interactive={false}
                                             />
                                         );
                                     })}

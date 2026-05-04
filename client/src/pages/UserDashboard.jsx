@@ -693,7 +693,7 @@ const UserDashboard = () => {
                                     );
                                 })}
                             </MapContainer>
-                        <div className="absolute top-4 right-4 bg-slate-900/85 backdrop-blur-md p-4 rounded-xl border border-white/10 text-white flex flex-col gap-3 shadow-2xl z-[500] min-w-[140px]">
+                        <div className="absolute top-4 right-4 bg-slate-900/85 backdrop-blur-md p-4 rounded-xl border border-white/10 text-white flex flex-col gap-3 shadow-2xl z-[10] min-w-[140px]">
                             <div className="flex items-center gap-2">
                                 <span className="relative flex h-2.5 w-2.5">
                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
@@ -817,7 +817,7 @@ const UserDashboard = () => {
             </main>
 
             {editingLink && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
                     <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-lg overflow-hidden scale-in-center">
                         <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
                             <h3 className="text-lg font-bold dark:text-white">Editar Enlace</h3>
@@ -851,7 +851,7 @@ const UserDashboard = () => {
 
             {/* Custom Delete Confirmation Modal */}
             {deleteId && (
-                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
                     <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-sm overflow-hidden scale-in-center">
                         <div className="p-6 text-center">
                             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/20 mb-4">
@@ -882,7 +882,7 @@ const UserDashboard = () => {
 
             {/* Custom Clear ALL Map Confirmation Modal */}
             {clearAllMap && (
-                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
                     <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-sm overflow-hidden scale-in-center">
                         <div className="p-6 text-center">
                             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/20 mb-4">

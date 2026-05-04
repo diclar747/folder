@@ -269,10 +269,10 @@ const AdminDashboard = () => {
 
                             {/* Floating Map Controls */}
                             <div className="absolute right-6 top-1/2 -translate-y-1/2 flex flex-col gap-2 z-10">
-                                <button className="flex size-10 items-center justify-center rounded-lg bg-white/10 backdrop-blur-md border border-white/10 text-white hover:bg-white/20">
+                                <button className="flex size-10 items-center justify-center rounded-lg bg-slate-900/70 backdrop-blur-md border border-white/20 text-white hover:bg-slate-800/90 shadow-lg">
                                     <span className="material-symbols-outlined">add</span>
                                 </button>
-                                <button className="flex size-10 items-center justify-center rounded-lg bg-white/10 backdrop-blur-md border border-white/10 text-white hover:bg-white/20">
+                                <button className="flex size-10 items-center justify-center rounded-lg bg-slate-900/70 backdrop-blur-md border border-white/20 text-white hover:bg-slate-800/90 shadow-lg">
                                     <span className="material-symbols-outlined">remove</span>
                                 </button>
                             </div>
@@ -281,18 +281,18 @@ const AdminDashboard = () => {
                         {/* Top Stats Overlay */}
                         <div className="relative z-10 p-6 pointer-events-none">
                             <div className="flex flex-wrap gap-4 pointer-events-auto">
-                                <div className="flex min-w-[180px] flex-1 flex-col gap-1 rounded-xl p-5 bg-white/10 backdrop-blur-lg border border-white/10">
+                                <div className="flex min-w-[180px] flex-1 flex-col gap-1 rounded-xl p-5 bg-slate-900/75 backdrop-blur-lg border border-white/10 shadow-xl">
                                     <p className="text-slate-300 text-xs font-medium uppercase tracking-wider">Objetivos Activos</p>
                                     <div className="flex items-end gap-2">
                                         <p className="text-white text-3xl font-bold leading-none">{sessions.length}</p>
-                                        <p className="text-[#0bda5b] text-sm font-bold pb-1">En Vivo</p>
+                                        <p className="text-green-400 text-sm font-bold pb-1 flex items-center gap-1"><span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span></span> En Vivo</p>
                                     </div>
                                 </div>
-                                <div className="flex min-w-[180px] flex-1 flex-col gap-1 rounded-xl p-5 bg-white/10 backdrop-blur-lg border border-white/10">
+                                <div className="flex min-w-[180px] flex-1 flex-col gap-1 rounded-xl p-5 bg-slate-900/75 backdrop-blur-lg border border-white/10 shadow-xl">
                                     <p className="text-slate-300 text-xs font-medium uppercase tracking-wider">Impactos Totales</p>
                                     <div className="flex items-end gap-2">
                                         <p className="text-white text-3xl font-bold leading-none">1,284</p>
-                                        <p className="text-[#0bda5b] text-sm font-bold pb-1">+12%</p>
+                                        <p className="text-green-400 text-sm font-bold pb-1">+12%</p>
                                     </div>
                                 </div>
                             </div>

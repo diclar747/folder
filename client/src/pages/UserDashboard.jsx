@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { MapContainer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import MapLayers from '../components/MapLayers';
-import { getBearing, createArrowIcon, createPulseIcon, createDotIcon } from '../utils/mapUtils';
+import { getBearing, createArrowIcon, createPulseIcon, createDotIcon, createHistoryIcon } from '../utils/mapUtils';
 import { io } from 'socket.io-client';
 import api from '../services/api';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
@@ -693,17 +693,21 @@ const UserDashboard = () => {
                                     );
                                 })}
                             </MapContainer>
-                        <div className="absolute top-4 right-4 bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/20 text-white flex flex-col gap-3">
-                            <div>
-                                <p className="text-xs font-bold uppercase tracking-wider mb-1">En Vivo</p>
-                                <p className="text-2xl font-bold">{sessions.length} <span className="text-sm font-normal text-slate-300">Objetivos</span></p>
+                        <div className="absolute top-4 right-4 bg-slate-900/85 backdrop-blur-md p-4 rounded-xl border border-white/10 text-white flex flex-col gap-3 shadow-2xl z-[500] min-w-[140px]">
+                            <div className="flex items-center gap-2">
+                                <span className="relative flex h-2.5 w-2.5">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                                </span>
+                                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-300">En Vivo</p>
                             </div>
+                            <p className="text-3xl font-bold leading-none">{sessions.length} <span className="text-sm font-normal text-slate-400">Objetivos</span></p>
                             {sessions.length > 0 && (
                                 <button
                                     onClick={handleClearMap}
-                                    className="w-full py-2 bg-red-500/80 hover:bg-red-600/90 text-white text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 backdrop-blur-sm"
+                                    className="w-full py-2 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 shadow-lg shadow-red-500/20"
                                 >
-                                    <span className="material-symbols-outlined text-sm">delete</span> Limpiar
+                                    <span className="material-symbols-outlined text-sm">delete</span> Limpiar Mapa
                                 </button>
                             )}
                         </div>
@@ -1112,12 +1116,7 @@ const UserDashboard = () => {
                                     {historyData.length > 0 && (
                                         <Marker
                                             position={[historyData[0].lat, historyData[0].lng]}
-                                            icon={L.divIcon({
-                                                className: 'custom-marker',
-                                                html: '<div style="background:#22c55e;width:14px;height:14px;border-radius:50%;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3);"></div>',
-                                                iconSize: [16, 16],
-                                                iconAnchor: [8, 8]
-                                            })}
+                                            icon={createHistoryIcon('#22c55e', 'A')}
                                             title="Inicio del recorrido"
                                             eventHandlers={{ click: () => setSelectedHistoryPoint(historyData[0]) }}
                                         >
@@ -1147,7 +1146,7 @@ const UserDashboard = () => {
                                     {historyData.length > 1 && (
                                         <Marker
                                             position={[historyData[historyData.length - 1].lat, historyData[historyData.length - 1].lng]}
-                                            icon={redIcon}
+                                            icon={createHistoryIcon('#ef4444', 'B')}
                                             title="Fin del recorrido"
                                             eventHandlers={{ click: () => setSelectedHistoryPoint(historyData[historyData.length - 1]) }}
                                         >
@@ -1178,12 +1177,7 @@ const UserDashboard = () => {
                                     {selectedHistoryPoint && selectedHistoryPoint !== historyData[0] && selectedHistoryPoint !== historyData[historyData.length - 1] && (
                                         <Marker
                                             position={[selectedHistoryPoint.lat, selectedHistoryPoint.lng]}
-                                            icon={L.divIcon({
-                                                className: 'custom-marker',
-                                                html: '<div style="background:#f59e0b;width:14px;height:14px;border-radius:50%;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3);"></div>',
-                                                iconSize: [16, 16],
-                                                iconAnchor: [8, 8]
-                                            })}
+                                            icon={createHistoryIcon('#f59e0b', '●')}
                                         >
                                             <Popup eventHandlers={{ popupclose: () => setSelectedHistoryPoint(null) }}>
                                                 <div style={{ padding: '4px 2px', minWidth: 140 }}>

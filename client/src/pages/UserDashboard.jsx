@@ -17,8 +17,8 @@ const mapContainerStyle = {
 };
 
 const center = {
-    lat: -34.603722,
-    lng: -58.381592
+    lat: -23.442503,
+    lng: -58.443832
 };
 
 const redIcon = L.divIcon({
@@ -67,6 +67,19 @@ const HistoryMapRefSetter = ({ mapRef }) => {
     useEffect(() => {
         mapRef.current = map;
     }, [map, mapRef]);
+    return null;
+};
+
+const OverviewMapController = ({ sessions }) => {
+    const map = useMap();
+    useEffect(() => {
+        if (sessions.length > 0) {
+            const bounds = L.latLngBounds(sessions.map(s => [s.lat, s.lng]));
+            map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
+        } else {
+            map.setView([center.lat, center.lng], 6);
+        }
+    }, [sessions, map]);
     return null;
 };
 
@@ -339,10 +352,12 @@ const UserDashboard = () => {
             await api.delete('/user/sessions');
             setSessions([]);
             setLiveTrails({});
-            fetchSessions();
+            setMyLocation(null);
+            setSelectedSession(null);
+            await fetchSessions();
             setClearAllMap(false);
         } catch (e) {
-            alert('Error limpiando mapa: ' + e.message);
+            alert('Error limpiando mapa: ' + (e.response?.data?.message || e.message));
         }
     };
 
@@ -553,8 +568,9 @@ const UserDashboard = () => {
                                 </div>
                             </div>
                             <div className="bg-white dark:bg-surface-dark rounded-xl border border-slate-100 dark:border-border-dark shadow-sm p-6 h-[400px] relative overflow-hidden">
-                                <MapContainer style={mapContainerStyle} zoom={2} center={[center.lat, center.lng]}>
+                                <MapContainer style={mapContainerStyle} zoom={6} center={[center.lat, center.lng]}>
                                     <MapLayers googleApiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY} />
+                                    <OverviewMapController sessions={sessions} />
                                     {sessions.map(s => {
                                         const key = s.socketId || s.id;
                                         const trail = liveTrails[key] || [];

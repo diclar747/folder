@@ -1,18 +1,20 @@
 const { Sequelize } = require('sequelize');
+require('dotenv').config();
 
-// Use the appropriate database URL for Vercel deployment
-// Force Neon DB to avoid Vercel Postgres shadowing
-const databaseUrl = 'postgresql://neondb_owner:npg_zaGO5Fmeokp9@ep-jolly-shape-ah45awdh-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require';
+// PostgreSQL. Se configura con DATABASE_URL; si no existe se usa la BD local.
+// SSL se activa solo si la URL trae sslmode=require o si DB_SSL=true (hosts remotos).
+const databaseUrl = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/ubicar';
+const useSsl = process.env.DB_SSL === 'true' || /sslmode=require/.test(databaseUrl);
 
 const sequelize = new Sequelize(databaseUrl, {
     dialect: 'postgres',
     dialectModule: require('pg'), // Required for Vercel/Next.js/Serverless
-    dialectOptions: {
+    dialectOptions: useSsl ? {
         ssl: {
             require: true,
             rejectUnauthorized: false
         }
-    },
+    } : {},
     logging: false, // Disable logging in production, enable for debugging
     pool: {
         max: 20,

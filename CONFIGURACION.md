@@ -27,3 +27,17 @@ IMGBB_API_KEY=tu_api_key_aqui
 ---
 
 **Nota**: Sin la API key, solo puedes usar URLs públicas de imágenes (https://...)
+
+## Base de datos (PostgreSQL)
+
+La app usa PostgreSQL (ya no Neon). Se configura con `DATABASE_URL`; sin ella usa la BD local.
+
+### Local
+1. Crear la base: `CREATE DATABASE ubicar;` (usuario `postgres`, contraseña `postgres`, puerto `5432`).
+2. Copiar `server/.env.example` a `server/.env`.
+3. Crear tablas y usuarios iniciales: `cd server && node seed.js`
+   (`admin@admin` / `user@user.com`, contraseña `1234567`).
+4. Levantar: `cd server && node index.js` y `cd client && npx vite` → http://localhost:5173
+
+### Producción (Vercel)
+Definir `DATABASE_URL` (con `?sslmode=require` si el host lo exige) en Settings → Environment Variables.

@@ -623,7 +623,7 @@ const UserDashboard = () => {
 
                 {activeTab === 'map' && (
                     <div className="bg-white dark:bg-surface-dark rounded-xl border border-slate-100 dark:border-border-dark shadow-sm overflow-hidden h-[600px] relative">
-                            <MapContainer style={mapContainerStyle} zoom={selectedSession ? 15 : (myLocation ? 12 : 2)} center={selectedSession ? [selectedSession.lat, selectedSession.lng] : (myLocation ? [myLocation.lat, myLocation.lng] : [center.lat, center.lng])}>
+                            <MapContainer style={mapContainerStyle} zoom={selectedSession ? 15 : (myLocation ? 12 : 7)} center={selectedSession ? [selectedSession.lat, selectedSession.lng] : (myLocation ? [myLocation.lat, myLocation.lng] : [center.lat, center.lng])}>
                                 <MapLayers googleApiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY} />
                                 {/* Admin/User Device Location */}
                                 {myLocation && (
@@ -1074,7 +1074,7 @@ const UserDashboard = () => {
                                 )}
                                 <MapContainer
                                     style={{ width: '100%', height: '100%' }}
-                                    zoom={historyData.length > 0 ? 15 : 2}
+                                    zoom={historyData.length > 0 ? 15 : 7}
                                     center={
                                         selectedHistoryPoint
                                             ? [selectedHistoryPoint.lat, selectedHistoryPoint.lng]

@@ -40,11 +40,11 @@ const MapLayers = ({ googleApiKey }) => {
             {/* Google Maps layers (premium - when API key is configured) */}
             {hasGoogle && (
                 <>
-                    <BaseLayer checked name="Google Satélite">
-                        <GoogleMutantLayer type="satellite" />
-                    </BaseLayer>
-                    <BaseLayer name="Google Híbrido">
+                    <BaseLayer checked name="Google Híbrido">
                         <GoogleMutantLayer type="hybrid" />
+                    </BaseLayer>
+                    <BaseLayer name="Google Satélite">
+                        <GoogleMutantLayer type="satellite" />
                     </BaseLayer>
                     <BaseLayer name="Google Mapa">
                         <GoogleMutantLayer type="roadmap" />
@@ -55,18 +55,10 @@ const MapLayers = ({ googleApiKey }) => {
                 </>
             )}
 
-            {/* Professional free alternative: CartoDB Voyager (default when no Google) */}
-            <BaseLayer checked={!hasGoogle} name="CartoDB Voyager">
-                <TileLayer
-                    url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                    subdomains="abcd"
-                    maxZoom={20}
-                />
-            </BaseLayer>
-
-            {/* Satellite via Esri */}
-            <BaseLayer name="Satélite (Esri)">
+            {/* CartoDB now requires its own API key for basemaps, so it's no
+                longer a safe no-key fallback; Esri satellite is. */}
+            {/* Satellite via Esri (default when no Google) */}
+            <BaseLayer checked={!hasGoogle} name="Satélite (Esri)">
                 <TileLayer
                     url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                     attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'

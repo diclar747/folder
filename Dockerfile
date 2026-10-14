@@ -4,6 +4,8 @@ WORKDIR /app/client
 COPY client/package*.json ./
 RUN npm install --legacy-peer-deps
 COPY client/ ./
+ARG VITE_GOOGLE_MAPS_API_KEY
+ENV VITE_GOOGLE_MAPS_API_KEY=$VITE_GOOGLE_MAPS_API_KEY
 RUN npm run build
 
 # --- Servidor (API + frontend) ---

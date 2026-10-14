@@ -31,6 +31,12 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 
+// Self-hosted (Docker/Dokploy): serve the built React client from this server.
+// On Vercel the static files are served by the platform, so this stays off.
+if (process.env.SERVE_CLIENT === 'true') {
+    app.use(express.static(require('path').join(__dirname, '../client/dist')));
+}
+
 // Root Route (Welcome)
 app.get('/', (req, res) => {
     res.json({

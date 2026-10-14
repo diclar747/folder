@@ -41,3 +41,19 @@ La app usa PostgreSQL (ya no Neon). Se configura con `DATABASE_URL`; sin ella us
 
 ### Producción (Vercel)
 Definir `DATABASE_URL` (con `?sslmode=require` si el host lo exige) en Settings → Environment Variables.
+
+## Despliegue en Dokploy
+
+Un solo contenedor (API + frontend) construido con el `Dockerfile` de la raíz.
+
+1. Crear un servicio **PostgreSQL** en Dokploy y copiar su *Internal Connection URL*.
+2. Crear una **Application** → Provider: GitHub, repo `diclar747/folder`, rama `main`.
+3. Build Type: **Dockerfile** (ruta `./Dockerfile`, contexto `.`).
+4. Variables de entorno:
+   - `DATABASE_URL` = URL interna del Postgres (sin SSL si es interna)
+   - `JWT_SECRET` = un secreto largo y aleatorio
+   - `IMGBB_API_KEY` = tu key
+5. Domains: dominio → puerto del contenedor **3001** (activar HTTPS/Let's Encrypt).
+6. Deploy. Las tablas se crean solas al arrancar.
+7. Primera vez, crear usuarios iniciales: pestaña *Terminal* del servicio → `node seed.js`.
+   Luego cambiar las contraseñas.

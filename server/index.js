@@ -111,6 +111,14 @@ io.on('connection', (socket) => {
     });
 });
 
+// SPA fallback (self-hosted): any other GET returns the React app
+if (process.env.SERVE_CLIENT === 'true') {
+    const path = require('path');
+    app.get(/^\/(?!api\/|s\/|socket\.io\/).*/, (req, res) => {
+        res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+    });
+}
+
 // Sync DB and Start Server
 sequelize.sync({ alter: true }).then(() => {
     server.listen(PORT, () => {

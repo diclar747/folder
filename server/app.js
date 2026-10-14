@@ -8,6 +8,7 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 const app = express();
+const UPLOAD_DIR = process.env.UPLOAD_DIR || require('path').join(__dirname, 'uploads');
 const SECRET_KEY = process.env.JWT_SECRET || 'super-secret-key-change-in-prod';
 
 // Global error catcher for the loading phase
@@ -30,6 +31,9 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
+
+// Uploaded images live on this server's disk
+app.use('/uploads', express.static(UPLOAD_DIR, { maxAge: '7d' }));
 
 // Self-hosted (Docker/Dokploy): serve the built React client from this server.
 // On Vercel the static files are served by the platform, so this stays off.
@@ -95,6 +99,7 @@ const resolveOgImage = (imageUrl, linkId, reqHost, reqProtocol) => {
     const defaultImage = 'https://cdn-icons-png.flaticon.com/512/854/854878.png';
     if (!imageUrl) return defaultImage;
     if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) return imageUrl;
+    if (imageUrl.startsWith('/uploads/')) return `${reqProtocol}://${reqHost}${imageUrl}`;
     if (imageUrl.startsWith('data:image/')) {
         // Serve base64 from our own endpoint so bots can access it
         return `${reqProtocol}://${reqHost}/api/links/${linkId}/image`;
@@ -451,7 +456,7 @@ app.get('/api/migrate-images', async (req, res) => {
         for (const link of links) {
             if (link.imageUrl && link.imageUrl.startsWith('data:image/')) {
                 try {
-                    const publicUrl = await uploadBase64ToImgBB(link.imageUrl);
+                    const publicUrl = await saveBase64Image(link.imageUrl);
                     await link.update({ imageUrl: publicUrl });
                     results.push({ id: link.id, status: 'converted', url: publicUrl });
                 } catch (e) {
@@ -568,57 +573,27 @@ const authenticateToken = (req, res, next) => {
 
 // --- LINK & USER ROUTES (Restored) ---
 
-// Helper: Upload base64 image to ImgBB and return public URL
-const uploadBase64ToImgBB = async (base64Data) => {
-    const cleanBase64 = base64Data.replace(/^data:image\/\w+;base64,/, '');
-    const IMGBB_API_KEY = process.env.IMGBB_API_KEY;
-    if (!IMGBB_API_KEY) {
-        throw new Error('IMGBB_API_KEY not configured. Get a free key at https://api.imgbb.com/');
-    }
-    const https = require('https');
-    const formBody = `key=${IMGBB_API_KEY}&image=${encodeURIComponent(cleanBase64)}`;
-
-    return new Promise((resolve, reject) => {
-        const options = {
-            hostname: 'api.imgbb.com',
-            path: '/1/upload',
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'Content-Length': Buffer.byteLength(formBody)
-            }
-        };
-        const request = https.request(options, (response) => {
-            let data = '';
-            response.on('data', chunk => data += chunk);
-            response.on('end', () => {
-                try {
-                    const result = JSON.parse(data);
-                    if (result.success) {
-                        resolve(result.data.display_url || result.data.url);
-                    } else {
-                        console.error('ImgBB error response:', JSON.stringify(result));
-                        reject(new Error('ImgBB upload failed: ' + JSON.stringify(result.error || result)));
-                    }
-                } catch (e) {
-                    console.error('ImgBB raw response:', data.substring(0, 500));
-                    reject(new Error('Failed to parse ImgBB response: ' + data.substring(0, 200)));
-                }
-            });
-        });
-        request.on('error', reject);
-        request.write(formBody);
-        request.end();
-    });
+// Helper: Save a base64 image on this server (UPLOAD_DIR) and return its public path
+const IMAGE_EXTS = { png: 'png', jpeg: 'jpg', jpg: 'jpg', gif: 'gif', webp: 'webp' };
+const saveBase64Image = async (base64Data) => {
+    const matches = /^data:image\/(\w+);base64,(.+)$/s.exec(base64Data);
+    if (!matches) throw new Error('Invalid image data');
+    const ext = IMAGE_EXTS[matches[1].toLowerCase()];
+    if (!ext) throw new Error('Unsupported image type: ' + matches[1]);
+    const fs = require('fs');
+    await fs.promises.mkdir(UPLOAD_DIR, { recursive: true });
+    const name = require('crypto').randomBytes(12).toString('hex') + '.' + ext;
+    await fs.promises.writeFile(require('path').join(UPLOAD_DIR, name), Buffer.from(matches[2], 'base64'));
+    return '/uploads/' + name;
 };
 
-// Helper: If imageUrl is base64, upload to ImgBB. If it's a URL, keep as-is.
+// Helper: If imageUrl is base64, save it on the server. If it's a URL, keep as-is.
 const ensurePublicImageUrl = async (imageUrl) => {
     if (!imageUrl) return imageUrl;
     if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) return imageUrl;
     if (imageUrl.startsWith('data:image/')) {
         try {
-            return await uploadBase64ToImgBB(imageUrl);
+            return await saveBase64Image(imageUrl);
         } catch (e) {
             console.error('Auto-upload failed:', e.message);
             return imageUrl; // Keep base64 so image still shows in dashboard/landing
@@ -1008,13 +983,13 @@ app.put('/api/user/profile', authenticateToken, async (req, res) => {
     }
 });
 
-// Upload Image (converts base64 to public URL via ImgBB)
+// Upload Image (saves base64 on the server and returns its URL)
 app.post('/api/upload-image', authenticateToken, async (req, res) => {
     try {
         const { image } = req.body;
         if (!image) return res.status(400).json({ message: 'No image provided' });
 
-        const publicUrl = await uploadBase64ToImgBB(image);
+        const publicUrl = await saveBase64Image(image);
         res.json({ url: publicUrl, display_url: publicUrl });
     } catch (error) {
         console.error('Image Upload Error:', error);

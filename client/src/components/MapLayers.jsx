@@ -36,21 +36,21 @@ const MapLayers = ({ googleApiKey }) => {
     const hasGoogle = googleApiKey && googleLoaded;
 
     return (
-        <LayersControl position="topright">
+        <LayersControl position="bottomright">
             {/* Google Maps layers (premium - when API key is configured) */}
             {hasGoogle && (
                 <>
                     <BaseLayer checked name="Google Híbrido">
-                        <GoogleMutantLayer type="hybrid" />
+                        <GoogleMutantLayer type="hybrid" name="Google Híbrido" defaultActive />
                     </BaseLayer>
                     <BaseLayer name="Google Satélite">
-                        <GoogleMutantLayer type="satellite" />
+                        <GoogleMutantLayer type="satellite" name="Google Satélite" />
                     </BaseLayer>
                     <BaseLayer name="Google Mapa">
-                        <GoogleMutantLayer type="roadmap" />
+                        <GoogleMutantLayer type="roadmap" name="Google Mapa" />
                     </BaseLayer>
                     <BaseLayer name="Google Terreno">
-                        <GoogleMutantLayer type="terrain" />
+                        <GoogleMutantLayer type="terrain" name="Google Terreno" />
                     </BaseLayer>
                 </>
             )}
